@@ -7,31 +7,13 @@ package andrei.dynamic.common;
  */
 public enum MessageType {
     
-    /**
-     * CONTENT:
-     * <ul>
-     *	<li>operation: 4 bits</li>
-     *	<li>file name length: 1 byte</li>
-     *	<li>file name: up to 255 bytes</li>
-     *	<li><i>content length: 2 bytes (only for WRITE operation)</i></li>
-     *	<li><i>up to 65535 bytes of content (only for WRITE operation)</i></li>
-     * </ul>
-     */
-    TRANSFER(0),
-    
-    /**
-     * CONTENT:
-     * <ul>
-     *	<li>read buffer size: 4 bytes</li>
-     *	<li>write
-     * </ul>
-     */
-    SHAKE(1),
-    SHAKE_ACK(5),
-    SHUTDOWN(2),
-    SHUTDOWN_ACK(6),
-    REMAINING(3),
-    ERROR(7),
+    TEST_MESSAGE(100),
+    CREATE_FILE_MESSAGE(101),
+    DELETE_FILE_MESSAGE(102),
+    MODIFY_FILE_MESSAGE(103),
+    TEST_MESSAGE_RSP(110),
+    SET_PERMISSION_MESSAGE(150),
+    CLOSING_MESSAGE(200)
     
     ;
     
@@ -45,7 +27,7 @@ public enum MessageType {
 	return code;
     }
     
-    public MessageType parseCode(int code){
+    public static MessageType parseCode(int code){
 	for (MessageType type : MessageType.values()){
 	    if (type.code == code){
 		return type;

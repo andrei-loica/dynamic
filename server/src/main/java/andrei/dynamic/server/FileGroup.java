@@ -1,5 +1,7 @@
 package andrei.dynamic.server;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
 
@@ -7,20 +9,21 @@ import javax.xml.bind.annotation.XmlElement;
  *
  * @author Andrei
  */
+@XmlAccessorType(XmlAccessType.NONE)
 public class FileGroup {
     
-    @XmlAttribute
-    private String name;
+    @XmlAttribute(name = "client")
+    private String client;
     
     @XmlElement(name = "file")
     private FileGroupElement[] files;
 
-    public String getName() {
-	return name;
+    public String getClient() {
+	return client;
     }
 
-    public void setName(String name) {
-	this.name = name;
+    public void setClient(String client) {
+	this.client = client;
     }
 
     public FileGroupElement[] getFiles() {

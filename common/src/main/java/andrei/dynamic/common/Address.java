@@ -1,10 +1,12 @@
-package andrei.dynamic.client;
+package andrei.dynamic.common;
+
+import java.util.Objects;
 
 /**
  *
  * @author Andrei
  */
-public class Address {
+public class Address implements Comparable<Address>{
     
     private final String host;
     private final int port;
@@ -24,6 +26,45 @@ public class Address {
     
     public int getPort() {
 	return port;
+    }
+    
+    @Override
+    public String toString(){
+	return host + ":" + port;
+    }
+
+    @Override
+    public int hashCode() {
+	int hash = 7;
+	hash = 83 * hash + Objects.hashCode(this.host);
+	hash = 83 * hash + this.port;
+	return hash;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+	if (this == obj) {
+	    return true;
+	}
+	if (obj == null) {
+	    return false;
+	}
+	if (getClass() != obj.getClass()) {
+	    return false;
+	}
+	final Address other = (Address) obj;
+	if (this.port != other.port) {
+	    return false;
+	}
+	if (!Objects.equals(this.host, other.host)) {
+	    return false;
+	}
+	return true;
+    }
+    
+    @Override
+    public int compareTo(Address other){
+	return toString().compareTo(other.toString());
     }
     
     public static Address parseAddress(final String entry) throws Exception {

@@ -1,5 +1,6 @@
 package andrei.dynamic.client;
 
+import andrei.dynamic.common.Address;
 import andrei.dynamic.common.DirectoryManager;
 
 /**
@@ -8,17 +9,21 @@ import andrei.dynamic.common.DirectoryManager;
  */
 public class ClientConnection { //TODO rename Manager / ClientManager
 
-    private final Address address; //TODO de scos
+    private final Address controlAddress; //TODO de scos
+    private final Address dataAddress;
     private final DirectoryManager dir;
     private final ServerImage server;
     private State state;
 
-    public ClientConnection(final Address address,
-	    final DirectoryManager workingDirectory) {
+    public ClientConnection(final Address controlAddress,
+	    final Address dataAddress, final DirectoryManager workingDirectory,
+	    final String authToken) {
 
-	this.address = address;
+	this.controlAddress = controlAddress;
+	this.dataAddress = dataAddress;
 	dir = workingDirectory;
-	server = new ServerImage(this, address);
+	server = new ServerImage(this, controlAddress, dataAddress, dir,
+		authToken);
 	state = State.INITIALIZED;
 
     }
@@ -42,6 +47,7 @@ public class ClientConnection { //TODO rename Manager / ClientManager
 
 	while (state == State.CONNECTING) {
 	    try {
+		System.out.println("opening new connection");
 		server.initConnection();
 	    } catch (Exception ex) {
 		if (!keepAlive) {
@@ -53,11 +59,13 @@ public class ClientConnection { //TODO rename Manager / ClientManager
 
 	    state = State.WORKING;
 	}
-	
+
     }
 
     public void stop() {
 	state = State.FINAL;
+	server.stop();
+
 	//graceful stop
     }
 

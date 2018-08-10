@@ -1,4 +1,4 @@
-package andrei.dynamic.server;
+package andrei.dynamic.server.jaxb;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;

@@ -7,14 +7,12 @@ import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
-import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
-import java.nio.file.CopyOption;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,6 +28,7 @@ public class ServerImage {
     private final Address dataAddress;
     private final ClientConnection parent;
     private final DirectoryManager dir;
+    private final String authToken;
     private Socket socket;
     private DataOutputStream out;
     private DataInputStream in;
@@ -43,6 +42,7 @@ public class ServerImage {
 	this.controlAddress = controlAddress;
 	this.dataAddress = dataAddress;
 	this.dir = dir;
+	this.authToken = authToken;
 	keepWorking = true;
 	state = State.INIT;
     }
@@ -139,14 +139,14 @@ public class ServerImage {
     }
 
     private void sendTestResponse() throws Exception {
-	out.write(MessageFactory.newTestResponseMessage());
+	out.write(MessageFactory.newTestResponseMessage(authToken));
     }
 
     public void stop() {
 	keepWorking = false;
     }
 
-    public void disconnect() throws IOException {
+    public void disconnect() throws IOException { //TODO vezi ca ajunge close pe socket
 	final StringBuilder exceptionMessage = new StringBuilder();
 	try {
 	    out.close();

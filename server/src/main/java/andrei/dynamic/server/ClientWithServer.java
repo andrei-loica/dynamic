@@ -1,5 +1,6 @@
 package andrei.dynamic.server;
 
+import andrei.dynamic.server.jaxb.FileGroup;
 import andrei.dynamic.common.Address;
 import andrei.dynamic.common.MessageFactory;
 import andrei.dynamic.common.MessageType;
@@ -7,11 +8,8 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.EOFException;
 import java.io.FileInputStream;
-import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketTimeoutException;
 import java.util.Objects;
 
 /**
@@ -22,7 +20,7 @@ public class ClientWithServer
 	implements Comparable<ClientWithServer> {
 
     private static final int SOCKET_TIMEOUT = 5000;
-    private final ConnectionManager manager;
+    private final CoreManager manager;
     private final Socket socket;
     private final Address clientControlAddress;
     private final int localDataPort;
@@ -31,7 +29,7 @@ public class ClientWithServer
     private FileGroup files;
 
     public ClientWithServer(final Socket socket, int localDataPort,
-	    final ConnectionManager manager) throws Exception {
+	    final CoreManager manager) throws Exception {
 	this.manager = manager;
 	this.socket = socket;
 	try {
@@ -125,13 +123,13 @@ public class ClientWithServer
 	}
     }
 
-    public boolean testConnection() throws MustResetConnectionException {
+    public String testConnection() throws MustResetConnectionException {
 	try {
 	    sendTestMessage();
 	} catch (Exception ex) {
 	    System.err.println("failed test connection");
 	    ex.printStackTrace(System.err);
-	    return false;
+	    return null;
 	}
 
 	try {
@@ -141,7 +139,7 @@ public class ClientWithServer
 	} catch (MustResetConnectionException ex) {
 	    throw ex;
 	} catch (Exception ex) {
-	    return false;
+	    return null;
 	}
 
 	int counter = 0;
@@ -154,7 +152,7 @@ public class ClientWithServer
 	    }
 	}
 
-	return true;
+	return new String(MessageFactory.trimPadding(buff));
     }
 
     private void sendTestMessage() throws Exception {

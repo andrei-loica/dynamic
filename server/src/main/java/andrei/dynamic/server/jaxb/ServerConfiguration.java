@@ -1,5 +1,6 @@
-package andrei.dynamic.server;
+package andrei.dynamic.server.jaxb;
 
+import andrei.dynamic.server.jaxb.FileSettings;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -18,6 +19,9 @@ public class ServerConfiguration {
     
     @XmlElement
     private int localDataPort;
+    
+    @XmlElement
+    private int localHttpPort;
     
     @XmlElement
     private int maxClientConnections;
@@ -40,6 +44,14 @@ public class ServerConfiguration {
 
     public void setLocalDataPort(int localDataPort) {
 	this.localDataPort = localDataPort;
+    }
+
+    public int getLocalHttpPort() {
+	return localHttpPort;
+    }
+
+    public void setLocalHttpPort(int localHttpPort) {
+	this.localHttpPort = localHttpPort;
     }
 
     public int getMaxClientConnections() {

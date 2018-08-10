@@ -1,5 +1,7 @@
 package andrei.dynamic.server;
 
+import andrei.dynamic.server.jaxb.ServerConfiguration;
+import andrei.dynamic.server.jaxb.FileSettings;
 import andrei.dynamic.common.DirectoryManager;
 import andrei.dynamic.common.ShutdownListener;
 import andrei.dynamic.common.ShutdownTask;
@@ -22,7 +24,7 @@ public class Main
     private final DirectoryManager dir;
     private Level logLevel;
     private final ServerConfiguration initialConfig;
-    private ConnectionManager manager;
+    private CoreManager manager;
     private Thread shutdownHook;
 
     public Main(final String configFilePath) throws Exception {
@@ -35,14 +37,17 @@ public class Main
 	validateConfig();
 
 	final FileSettings fileSettings = initialConfig.getFileSettings();
-	int checkPeriod = (fileSettings.getCheckPeriodMillis() == 0)
-		? DEFAULT_CHECK_PERIOD : fileSettings.getCheckPeriodMillis();
-	int maxDepth = (fileSettings.getMaxDirectoryDepth() == 0)
-		? DEFAULT_MAX_DEPTH : fileSettings.getMaxDirectoryDepth();
+	if (fileSettings.getCheckPeriodMillis() == 0) {
+	    fileSettings.setCheckPeriodMillis(DEFAULT_CHECK_PERIOD);
+	}
+	if (fileSettings.getMaxDirectoryDepth() == 0) {
+	    fileSettings.setMaxDirectoryDepth(DEFAULT_MAX_DEPTH);
+	}
 
-	dir = new DirectoryManager(fileSettings.getRootDirectory(), checkPeriod,
-		maxDepth);
-	
+	dir = new DirectoryManager(fileSettings.getRootDirectory(),
+		fileSettings.getCheckPeriodMillis(), fileSettings.
+		getMaxDirectoryDepth());
+
 	logLevel = null;
     }
 
@@ -70,6 +75,7 @@ public class Main
 	    //TODO
 	    System.err.println(
 		    "Initialization exception: could not load server configuration from given file path");
+	    ex.printStackTrace(System.err);
 	    return;
 	} catch (Exception ex) {
 	    //TODO
@@ -79,19 +85,20 @@ public class Main
 	}
 
 	try {
-	    main.start();
+	    main.start(args[0]);
 	} catch (Exception ex) {
 	    System.err.println("Failed starting the server: " + ex.getMessage());
+	    ex.printStackTrace(System.err);
 	}
     }
 
-    public void start() throws Exception {
+    public void start(final String configFilePath) throws Exception {
 
 	final Thread mainThread = Thread.currentThread();
 	shutdownHook = new Thread(new ShutdownTask(this, mainThread));
 	Runtime.getRuntime().addShutdownHook(shutdownHook);
 
-	manager = new ConnectionManager(initialConfig, dir);
+	manager = new CoreManager(initialConfig, configFilePath, dir);
 
 	try {
 	    manager.start();
@@ -120,16 +127,33 @@ public class Main
 	    throw new Exception("could not extract server configuration");
 	}
 
-	if (initialConfig.getLocalControlPort() < 1 || initialConfig.getLocalControlPort() > 65535) {
+	if (initialConfig.getLocalControlPort() < 1 || initialConfig.
+		getLocalControlPort() > 65535) {
 	    throw new Exception("invalid control port number");
 	}
 
-	if (initialConfig.getLocalDataPort() < 1 || initialConfig.getLocalDataPort() > 65535) {
+	if (initialConfig.getLocalDataPort() < 1 || initialConfig.
+		getLocalDataPort() > 65535) {
 	    throw new Exception("invalid data port number");
 	}
 
-	if (initialConfig.getLocalControlPort() == initialConfig.getLocalDataPort()) {
+	if (initialConfig.getLocalHttpPort() < 1 || initialConfig.
+		getLocalHttpPort() > 65535) {
+	    throw new Exception("invalid data port number");
+	}
+
+	if (initialConfig.getLocalControlPort() == initialConfig.
+		getLocalDataPort()) {
 	    throw new Exception("control and data port must be different");
+	}
+
+	if (initialConfig.getLocalControlPort() == initialConfig.
+		getLocalHttpPort()) {
+	    throw new Exception("control and http port must be different");
+	}
+
+	if (initialConfig.getLocalDataPort() == initialConfig.getLocalHttpPort()) {
+	    throw new Exception("data and http port must be different");
 	}
 
 	if (initialConfig.getFileSettings() == null) {
@@ -146,13 +170,14 @@ public class Main
 		|| initialConfig.getFileSettings().getRootDirectory().isEmpty()) {
 	    throw new Exception("invalid root directory in server configuration");
 	}
-	
+
 	if (initialConfig.getFileSettings().getCheckPeriodMillis() < 0) {
 	    throw new Exception("invalid check period in server configuration");
 	}
-	
-	if (initialConfig.getFileSettings().getMaxDirectoryDepth() < 0){
-	    throw new Exception ("invalid maximum directory depth in server configuration");
+
+	if (initialConfig.getFileSettings().getMaxDirectoryDepth() < 0) {
+	    throw new Exception(
+		    "invalid maximum directory depth in server configuration");
 	}
     }
 

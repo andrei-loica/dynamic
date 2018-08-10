@@ -86,6 +86,18 @@ public class DirectoryManager {
 
 	return absolute.substring(getAbsolutePath().length(), absolute.length());
     }
+    
+    public String normalizeRelativePath(final String relative) throws Exception{
+	if (!relative.startsWith(FileSystems.getDefault().getSeparator())){
+	    return FileSystems.getDefault().getSeparator() + relative;
+	}
+	
+	return relative;
+    }
+    
+    public boolean isDirectory(final String relative){
+	return Files.isDirectory(FileSystems.getDefault().getPath(getAbsolutePath(), relative));
+    }
 
     protected void refreshContentImage() throws Exception {
 	final DirectoryInstance newImage

@@ -1,6 +1,6 @@
 package andrei.dynamic.server.jaxb;
 
-import andrei.dynamic.server.jaxb.FileSettings;
+import andrei.dynamic.server.jaxb.XmlFileSettings;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -12,7 +12,7 @@ import javax.xml.bind.annotation.XmlRootElement;
  */
 @XmlRootElement(name = "server-configuration")
 @XmlAccessorType(XmlAccessType.NONE)
-public class ServerConfiguration {
+public class XmlServerConfiguration {
     
     @XmlElement
     private int localControlPort;
@@ -27,7 +27,7 @@ public class ServerConfiguration {
     private int maxClientConnections;
     
     @XmlElement(name = "file-settings")
-    private FileSettings fileSettings;
+    private XmlFileSettings fileSettings;
     
 
     public int getLocalControlPort() {
@@ -62,11 +62,11 @@ public class ServerConfiguration {
 	this.maxClientConnections = maxClientConnections;
     }
 
-    public FileSettings getFileSettings() {
+    public XmlFileSettings getFileSettings() {
 	return fileSettings;
     }
 
-    public void setFileSettings(FileSettings fileSettings) {
+    public void setFileSettings(XmlFileSettings fileSettings) {
 	this.fileSettings = fileSettings;
     }
     

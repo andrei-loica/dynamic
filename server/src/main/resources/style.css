@@ -1,0 +1,279 @@
+body {
+	margin: 0;
+	font-family: "Lucida Sans Unicode", "Lucida Grande", sans-serif;
+}
+
+#menu{
+	list-style-type: none;
+	overflow: hidden;
+	padding: 3px;
+	float: none;
+	margin: 0;
+	background: linear-gradient(to bottom, rgb(180, 180, 220), rgb(120, 120, 180));
+	/*background: linear-gradient(to bottom, rgb(195, 195, 240), rgb(170, 170, 230));*/
+	/*background-color: rgb(185, 185, 240);*/
+}
+
+#menu li{
+	font-family: "Comic Sans MS", cursive, sans-serif;
+	padding: 5px;
+	padding-left: 25px;
+	width: 7em;
+	float: left;
+	/*background-color: rgb(180, 240, 220);*/
+	background: linear-gradient(to bottom, rgb(225, 255, 240), rgb(140, 210, 190));
+	border: 1px solid rgb(180, 180, 180);
+	border-radius: 0 0 4px 8px;
+}
+
+#menu .selected{
+	padding: 7px 5px 7px 25px;
+	background: linear-gradient(to bottom, rgb(220, 245, 230), rgb(120, 200, 180));
+}
+
+#menu li:not(.selected):hover{
+	background: linear-gradient(to bottom, rgb(240, 255, 235), rgb(180, 230, 215));
+}
+
+#conn-content {
+	padding-top: 0;
+	font-size: 14px;
+	margin:0;
+}
+
+#conn-content input[type="number"]{
+	color: rgb(145,115,230);
+	background-color: rgb(247,247,255);
+	font-size: 16px;
+	font-weight: bold;
+	width: 3.5em;
+}
+
+a {
+	text-decoration: none;
+}
+
+#conn-content a {
+	color: rgb(130, 130, 210);
+}
+
+#menu a{
+	color: rgb(115, 70, 160);
+}
+
+#menu a:hover{
+	text-decoration: underline;
+	color: rgb(130, 130, 200);
+}
+
+#conn-content a:hover{
+	text-decoration: underline;
+	color: rgb(105, 80, 180);
+}
+
+.description {
+	/*background-color:rgb(240,240,240);*/
+	font-size: 16px;
+	overflow: hidden;
+	text-align: left;
+	background: linear-gradient(to bottom, rgb(245,245,245), rgb(230,230,230));
+	padding: 1em 0 0 1em;
+	height: 3em;
+	margin: 0;
+	border-bottom: 1px solid rgb(150,150,150);
+}
+
+#left-part {
+	border-right: 1px solid rgb(150,150,150);
+}
+
+.part {
+	box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    -webkit-box-sizing: border-box;
+	width: 50%;
+	padding:0;
+	float: left;
+	display: inline;
+	overflow: hidden;
+}
+
+input:not([type="submit"]){
+	margin: 2px;
+	padding: 3px;
+	border: 1px solid rgb(180,180,180);
+	border-radius: 3px;
+}
+
+input[type="submit"] {
+	margin: 2px;
+	padding: 3px 5px 3px 5px;
+	border: 2px solid rgb(180,180,180);
+	border-radius: 4px;
+	background-color:rgb(215,215,215);
+}
+
+input[type="submit"]:hover {
+	border-color: rgb(200,200,200);
+	background-color: rgb(220,220,220);
+}
+
+#files-content input[name="client"]{
+	width: 11em;
+}
+
+#files-content input[name="file"]{
+	width: 14em;
+}
+
+#files-content {
+	font-size: 0;
+}
+
+#files-content form{
+	font-size: 16px;
+	margin: 16px 0 12px 16px;
+	overflow: hidden;
+	display: inline-block;
+	vertical-align: top;
+	padding: 15px;
+	width: 220px;
+	height: 300px;
+	border: 1px solid rgb(180,180,180);
+	background-color: rgb(245,245,245);
+}
+
+#files-content form input{
+	display: block;
+}
+
+#files-content form div{
+	background-color: rgb(180, 180, 220);
+	border: 1px solid rgb(120, 120, 180);
+	overflow-y: auto;
+	max-height: 90px;
+}
+
+#files-content #vision-button{
+	font-family: "Courier New", Courier, monospace;
+	font-size: 18px;
+	font-weight: bold;
+	color: white;
+	background: linear-gradient(to bottom, rgb(210, 210, 245), rgb(160, 160, 200));
+	outline: none;
+}
+
+#files-content #vision-button:hover{
+	background: linear-gradient(to bottom, rgb(230, 230, 255), rgb(180, 180, 220));
+}
+
+#files-content #vision-button:active{
+	color: rgb(220,220,220);
+	background: linear-gradient(to bottom, rgb(180, 180, 220), rgb(130, 130, 180));
+}
+
+#params-content .part {
+	background-color: rgb(245,245,245);
+}
+
+#params-content ul{
+	padding: 15px 0 15px 35px;
+	margin:0;
+}
+
+#params-content li{
+	padding:10px 0 0 0;
+	margin: 0;
+	height: 35px;
+	font-size: 14px;
+}
+
+#params-content li:not(.last){
+	border-bottom: 1px solid rgb(160,150,220);
+}
+
+#param-values{
+	padding: 15px 0 15px 0;
+	margin:0;
+}
+
+#param-values div{
+	margin: 0;
+	padding: 10px 0 0 0;
+	height:35px;
+}
+
+#param-values div:not(.last){
+	border-bottom: 1px solid rgb(160,150,220);
+}
+
+#submit-params{
+	background-color: rgb(245,245,245);
+	text-align:center;
+}
+
+#submit-params input{
+	font-size:16px;
+}
+
+#param-values div input{
+	width: 6em;
+}
+
+.connected {
+	width: 15px;
+	height: 15px;
+	border-radius: 50%;
+	background-color: green;
+	display:inline-block;
+}
+.offline {
+	width: 15px;
+	height: 15px;
+	border-radius: 50%;
+	background-color: red;
+	display:inline-block;
+}
+.blocked {
+	width: 15px;
+	height: 15px;
+	border-radius: 50%;
+	background-color: orange;
+	display:inline-block;
+}
+.closing {
+	width: 15px;
+	height: 15px;
+	border-radius: 50%;
+	background-color: gray;
+	display:inline-block;
+}
+
+th {
+        text-align: left;
+	font-size: 14px;
+	border: 1px solid rgb(160,160,160);
+	padding: 10px;
+	font-weight: normal;
+}
+
+.aligned-cell{
+	padding-left: 30px;
+}
+
+table {
+	border-collapse: collapse;
+	border-spacing: 0;
+	text-align: left;
+	margin: 20px auto;
+	width: 60em;
+	border: 2px solid rgb(140,140,140);
+	background-color: rgb(248,248,248);
+}
+
+#table-description th{
+	font-size: 15px;
+	border: 1px solid rgb(120,120,120);
+	background-color: rgb(240,240,240);
+	font-weight: bold;
+}

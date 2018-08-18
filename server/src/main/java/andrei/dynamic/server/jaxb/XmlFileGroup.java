@@ -10,30 +10,40 @@ import javax.xml.bind.annotation.XmlElement;
  * @author Andrei
  */
 @XmlAccessorType(XmlAccessType.NONE)
-public class FileGroup {
+public class XmlFileGroup {
+    
+    public static int index;
     
     @XmlElement(name = "client")
     private String[] clients;
     
     @XmlElement(name = "file")
-    private FileGroupElement[] files;
+    private XmlFileGroupElement[] files;
+    
+    private int order;
 
     public String[] getClients() {
 	return clients;
     }
 
-    public void setClient(String[] clients) {
+    public void setClients(String[] clients) {
 	this.clients = clients;
     }
 
-    public FileGroupElement[] getFiles() {
+    public XmlFileGroupElement[] getFiles() {
 	return files;
     }
 
-    public void setFiles(FileGroupElement[] files) {
+    public void setFiles(XmlFileGroupElement[] files) {
 	this.files = files;
     }
-    
-    
+
+    public int getOrder() {
+	return order;
+    }
+
+    public void setOrder(int order) {
+	this.order = order;
+    }
     
 }

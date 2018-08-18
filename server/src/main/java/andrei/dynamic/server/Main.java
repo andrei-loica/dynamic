@@ -1,7 +1,7 @@
 package andrei.dynamic.server;
 
-import andrei.dynamic.server.jaxb.ServerConfiguration;
-import andrei.dynamic.server.jaxb.FileSettings;
+import andrei.dynamic.server.jaxb.XmlServerConfiguration;
+import andrei.dynamic.server.jaxb.XmlFileSettings;
 import andrei.dynamic.common.DirectoryManager;
 import andrei.dynamic.common.ShutdownListener;
 import andrei.dynamic.common.ShutdownTask;
@@ -23,20 +23,20 @@ public class Main
 
     private final DirectoryManager dir;
     private Level logLevel;
-    private final ServerConfiguration initialConfig;
+    private final XmlServerConfiguration initialConfig;
     private CoreManager manager;
     private Thread shutdownHook;
 
     public Main(final String configFilePath) throws Exception {
 
-	JAXBContext context = JAXBContext.newInstance(ServerConfiguration.class);
+	JAXBContext context = JAXBContext.newInstance(XmlServerConfiguration.class);
 	Unmarshaller um = context.createUnmarshaller();
-	initialConfig = (ServerConfiguration) um.unmarshal(new File(
+	initialConfig = (XmlServerConfiguration) um.unmarshal(new File(
 		configFilePath));
 
 	validateConfig();
 
-	final FileSettings fileSettings = initialConfig.getFileSettings();
+	final XmlFileSettings fileSettings = initialConfig.getFileSettings();
 	if (fileSettings.getCheckPeriodMillis() == 0) {
 	    fileSettings.setCheckPeriodMillis(DEFAULT_CHECK_PERIOD);
 	}
@@ -98,7 +98,7 @@ public class Main
 	shutdownHook = new Thread(new ShutdownTask(this, mainThread));
 	Runtime.getRuntime().addShutdownHook(shutdownHook);
 
-	manager = new CoreManager(initialConfig, configFilePath, dir);
+	manager = new CoreManager(new ServerConfiguration(initialConfig), configFilePath, dir);
 
 	try {
 	    manager.start();

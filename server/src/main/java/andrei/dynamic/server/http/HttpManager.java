@@ -24,9 +24,12 @@ public class HttpManager {
     }
     
     public void start(){
-	httpServer.createContext("/", new HomeView(core));
-	httpServer.createContext("/home/", new HomeView(core));
+	httpServer.createContext("/", new ConnectionsView(core));
+	httpServer.createContext("/files", new FilesView(core));
+	httpServer.createContext("/params", new ParamsView(core));
+	httpServer.createContext("/actions/", new ActionsView(core));
 	httpServer.createContext("/update/", new UpdateView(core));
+	httpServer.createContext("/static/", new StaticView());
 	
 	httpServer.setExecutor(Executors.newCachedThreadPool());
 	httpServer.start();

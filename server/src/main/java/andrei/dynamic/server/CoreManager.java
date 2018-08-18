@@ -1,12 +1,12 @@
 package andrei.dynamic.server;
 
-import andrei.dynamic.server.jaxb.ServerConfiguration;
+import andrei.dynamic.server.jaxb.XmlServerConfiguration;
 import andrei.dynamic.common.AbstractContentNode;
 import andrei.dynamic.common.DirectoryChangesListener;
 import andrei.dynamic.common.DirectoryManager;
 import andrei.dynamic.server.http.HttpManager;
-import andrei.dynamic.server.jaxb.FileGroup;
-import andrei.dynamic.server.jaxb.FileGroupElement;
+import andrei.dynamic.server.jaxb.XmlFileGroup;
+import andrei.dynamic.server.jaxb.XmlFileGroupElement;
 import java.io.File;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -19,6 +19,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.Marshaller;
 
@@ -32,11 +33,14 @@ public class CoreManager
     private final DirectoryManager dir;
     private ServerConfiguration config;
     private final String configFilePath;
-    private ConnectionListener connectionListener;
+    private ConnectionListener connectionListener; //should never be null
     private ServerSocket dataServer;
     private HttpManager httpManager;
     private final HashMap<String, HashSet<String>> tokensForContent; //<relativeFileName, tokens>
+    private final HashMap<String, HashSet<XmlFileGroupElement>> contentForToken; //<token, relativeFileNames>
     private final HashSet<String> validTokens;
+    private final HashSet<String> offlineTokens;
+    private final HashSet<String> blockedTokens;
     private final ArrayList<ClientWithServer> authenticatingClients;
     private final HashMap<String, ClientWorker> connectedTokensWithWorkers;
     private final ArrayList<ClientWorker> clientWorkers;
@@ -47,55 +51,17 @@ public class CoreManager
 	this.dir = dir;
 	config = initialConfig;
 	this.configFilePath = configFilePath;
+	validTokens = new HashSet<>();
+	offlineTokens = new HashSet<>();
+	blockedTokens = new HashSet<>();
 	tokensForContent = new HashMap<>();
+	contentForToken = new HashMap<>();
 	authenticatingClients = new ArrayList<>();
 	connectedTokensWithWorkers = new HashMap<>();
 	clientWorkers = new ArrayList<>();
 
-	for (FileGroup group : config.getFileSettings().getGroups()) {
-	    if (group.getFiles() != null) {
-		for (FileGroupElement file : group.getFiles()) {
-		    HashSet<String> tokens = tokensForContent.get(dir.
-			    normalizeRelativePath(file.
-				    getLocalPath()));
-		    if (tokens == null) {
-			tokens = new HashSet<>();
-			tokensForContent.put(dir.normalizeRelativePath(file.
-				getLocalPath()), tokens);
-		    }
-		    if (group.getClients() != null) {
-			for (String token : group.getClients()) {
-			    tokens.add(token);
-			}
-		    }
-		}
-	    }
-	}
+	processFileSettings();
 
-	validTokens = new HashSet();
-	for (HashSet set : tokensForContent.values()) {
-	    validTokens.addAll(set);
-	}
-
-	for (Entry<String, HashSet<String>> current : tokensForContent.
-		entrySet()) {
-	    for (Entry<String, HashSet<String>> other : tokensForContent.
-		    entrySet()) {
-		if (current.getKey().equals(other.getKey())) {
-		    continue;
-		}
-		if (current.getKey().startsWith(other.getKey()) && dir.
-			isDirectory(other.getKey())) {
-		    current.getValue().addAll(other.getValue());
-		}
-	    }
-	    /*
-	    System.out.println(current.getKey());
-	    for (String token : current.getValue()) {
-		System.out.print(token + " ");
-	    }
-	    System.out.println();*/
-	}
     }
 
     public void start() throws Exception {
@@ -129,7 +95,7 @@ public class CoreManager
 	    final String localRelative = dir.relativeFilePath(file.getPath());
 	    String bestMatch = "";
 	    for (String resource : tokensForContent.keySet()) {
-		if (resource.equals(localRelative)){
+		if (resource.equals(localRelative)) {
 		    bestMatch = resource;
 		    break;
 		}
@@ -161,7 +127,7 @@ public class CoreManager
 	    final String localRelative = dir.relativeFilePath(file.getPath());
 	    String bestMatch = "";
 	    for (String resource : tokensForContent.keySet()) {
-		if (resource.equals(localRelative)){
+		if (resource.equals(localRelative)) {
 		    bestMatch = resource;
 		    break;
 		}
@@ -193,7 +159,7 @@ public class CoreManager
 	    final String localRelative = dir.relativeFilePath(file.getPath());
 	    String bestMatch = "";
 	    for (String resource : tokensForContent.keySet()) {
-		if (resource.equals(localRelative)){
+		if (resource.equals(localRelative)) {
 		    bestMatch = resource;
 		    break;
 		}
@@ -219,7 +185,7 @@ public class CoreManager
 	}
     }
 
-    private void connectionListenerStopped() {
+    private synchronized void connectionListenerStopped() {
 	System.out.println("connection listener stopped");
 	dir.stop();
 
@@ -234,21 +200,32 @@ public class CoreManager
 	System.out.println("http server stopped");
     }
 
-    private void clientWorkerStopped(final ClientWorker worker) {
+    private synchronized void clientWorkerStopped(final ClientWorker worker) {
 	System.out.println("client connection " + worker.getClient().
 		getStringAddress()
 		+ " closed");
 
-	boolean removalResult = connectedTokensWithWorkers.remove(worker.
-		getToken()) != null;
-	removalResult = clientWorkers.remove(worker) && removalResult;
-	if (!removalResult) {
-	    System.err.println("s-a intamplat ceva foarte ciudat cu worker-ul");
+	boolean wasConnected;
+	if (!(wasConnected = (connectedTokensWithWorkers.remove(worker.getToken())
+		!= null))) {
+	    System.out.println("clientul " + worker.getToken()
+		    + " nu era conectat");
+	}
+	if (wasConnected && validTokens.contains(worker.getToken())) {
+	    offlineTokens.add(worker.getToken());
+	}
+	if (!clientWorkers.remove(worker)) {
+	    System.err.println("worker-ul nu era inregistrat");
+	}
+	if (authenticatingClients.remove(worker.getClient())) {
+	    System.err.println("clientul " + worker.getToken()
+		    + " nu a fost autentificat");
 	}
 
-	if (clientWorkers.isEmpty()) {
+	if (!connectionListener.isActive() && clientWorkers.isEmpty()) {
 	    try {
 		dataServer.close();
+		System.out.println("closed data transfer server");
 	    } catch (Exception ex) {
 		System.err.println("failed to close data server: " + ex.
 			getMessage());
@@ -256,7 +233,7 @@ public class CoreManager
 	}
     }
 
-    private void incomingConnection(final Socket client) {
+    private synchronized void incomingConnection(final Socket client) {
 
 	ClientWithServer clientWrapper;
 	ClientWorker clientWorker;
@@ -271,27 +248,26 @@ public class CoreManager
 	    return;
 	}
 
-	synchronized (authenticatingClients) {
-	    if (!authenticatingClients.contains(clientWrapper)) {
-		if (authenticatingClients.size() + connectedTokensWithWorkers.
-			size() < config.getMaxClientConnections()) {
-		    authenticatingClients.add(clientWrapper);
-		    clientWorkers.add(clientWorker);
-		    clientWorker.start();
-		} else {
-		    System.out.println("refused client connection");
-		    try {
-			client.close();
-		    } catch (Exception ex) {
-			System.err.println("failed closing the client");
-			//TODO naspa
-		    }
+	if (!authenticatingClients.contains(clientWrapper)) {
+	    if (authenticatingClients.size() + connectedTokensWithWorkers.
+		    size() < config.getMaxClientConnections()) {
+		authenticatingClients.add(clientWrapper);
+		clientWorkers.add(clientWorker);
+		clientWorker.start();
+	    } else {
+		System.out.println("refused client connection");
+		try {
+		    client.close();
+		} catch (Exception ex) {
+		    System.err.println("failed closing the client");
+		    //TODO naspa
 		}
 	    }
+
 	}
     }
 
-    private boolean authenticatedClient(final ClientWorker worker,
+    private synchronized boolean authenticatedClient(final ClientWorker worker,
 	    final String authToken) {
 
 	if (!authenticatingClients.remove(worker.getClient())) {
@@ -307,6 +283,7 @@ public class CoreManager
 	System.out.println("authenticated client " + worker.getClient().
 		getStringAddress() + " with token " + authToken);
 
+	offlineTokens.remove(authToken);
 	connectedTokensWithWorkers.put(authToken, worker);
 	return true;
     }
@@ -325,36 +302,157 @@ public class CoreManager
 	System.out.println("stopping client " + worker.getClient().
 		getStringAddress());
 	worker.stopWorking();
+
     }
 
-    private void saveConfig() throws Exception {
-	JAXBContext context = JAXBContext.newInstance(ServerConfiguration.class);
+    private void writeConfig() throws Exception {
+	JAXBContext context = JAXBContext.newInstance(
+		XmlServerConfiguration.class
+	);
 	Marshaller m = context.createMarshaller();
 	m.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
-	m.marshal(config, new File(configFilePath));
+	m.marshal(config.toJaxb(), new File(configFilePath));
+    }
+
+    private synchronized void processFileSettings() throws Exception {
+
+	XmlFileGroup.index = 0;
+	tokensForContent.clear();
+	contentForToken.clear();
+
+	for (XmlFileGroup group : config.getFileSettings().getGroups()) {
+	    group.setOrder(++XmlFileGroup.index);
+	    if (group.getFiles() != null) {
+		for (XmlFileGroupElement file : group.getFiles()) {
+		    HashSet<String> tokens = tokensForContent.get(dir.
+			    normalizeRelativePath(file.getLocalPath()));
+		    if (tokens == null) {
+			tokens = new HashSet<>();
+			tokensForContent.put(dir.normalizeRelativePath(file.
+				getLocalPath()), tokens);
+		    }
+		    if (group.getClients() != null) {
+			for (String token : group.getClients()) {
+			    tokens.add(token);
+			    HashSet<XmlFileGroupElement> files
+				    = contentForToken.get(token);
+			    if (files == null) {
+				files = new HashSet<>();
+				contentForToken.put(token, files);
+			    }
+			    files.add(file);
+			}
+		    }
+		}
+	    }
+	}
+
+	validTokens.clear();
+	for (HashSet set : tokensForContent.values()) {
+	    validTokens.addAll(set);
+	}
+
+	offlineTokens.clear();
+
+	for (String token : validTokens) {
+	    if (!connectedTokensWithWorkers.containsKey(token)) {
+		offlineTokens.add(token);
+	    }
+	}
+
+	for (Entry<String, HashSet<String>> current : tokensForContent.
+		entrySet()) {
+	    for (Entry<String, HashSet<String>> other : tokensForContent.
+		    entrySet()) {
+		if (current.getKey().equals(other.getKey())) {
+		    continue;
+		}
+		if (current.getKey().startsWith(other.getKey()) && dir.
+			isDirectory(other.getKey())) {
+		    current.getValue().addAll(other.getValue());
+		}
+	    }
+	    /*
+	    System.out.println(current.getKey());
+	    for (String token : current.getValue()) {
+		System.out.print(token + " ");
+	    }
+	    System.out.println();*/
+	}
+
+	for (Entry<String, ClientWorker> entry : connectedTokensWithWorkers.
+		entrySet()) {
+	    if (!validTokens.contains(entry.getKey())) {
+		entry.getValue().stopWorking();
+	    }
+	}
     }
 
     //<editor-fold desc="RUNTIME EXTERNAL API">
-    public Set<String> getConnectedClients() {
-	return connectedTokensWithWorkers.keySet();
+    public Set<ClientWithServer> getConnectedClients() {
+	return connectedTokensWithWorkers.values().stream().map(worker
+		-> worker.getClient()).collect(Collectors.toSet());
     }
 
-    public int getMaxClientConnections() {
-	synchronized (config) {
-	    return config.getMaxClientConnections();
+    public Set<String> getOfflineClients() {
+	return offlineTokens;
+    }
+
+    public Set<String> getBlockedClients() {
+	return blockedTokens;
+    }
+
+    public synchronized void blockClient(final String token) {
+	blockedTokens.add(token);
+
+	final ClientWorker worker = connectedTokensWithWorkers.get(token);
+	if (worker != null) {
+	    worker.stopWorking();
 	}
     }
 
-    public void setMaxClientConnections(int max) {
-	synchronized (config) {
-	    config.setMaxClientConnections(max);
-	}
+    public synchronized void unblockClient(final String token) {
+	blockedTokens.remove(token);
+    }
 
+    public void closeClient(final String token) throws Exception {
+	synchronized (connectedTokensWithWorkers) {
+	    final ClientWorker worker = connectedTokensWithWorkers.get(token);
+
+	    if (worker == null) {
+		throw new Exception("no client connected for token " + token);
+	    }
+
+	    System.out.println("closing client " + token + " at request");
+	    worker.stopWorking();
+	}
+    }
+
+    public ArrayList<XmlFileGroup> getFileGroups() {
+	return config.getFileSettings().getGroups();
+    }
+
+    public void setFileGroups(final ArrayList<XmlFileGroup> groups) {
+	synchronized (config) {
+	    config.getFileSettings().setGroups(groups);
+	}
+    }
+
+    public void saveConfig() {
 	try {
-	    saveConfig();
+	    writeConfig();
 	} catch (Exception ex) {
 	    System.err.println("failed to save new configuration");
 	}
+    }
+
+    public ServerConfiguration getConfig() {
+	return config;
+    }
+
+    public void setConfig(final ServerConfiguration config) {
+	this.config = config;
+
     }
 
     //</editor-fold>
@@ -451,9 +549,15 @@ public class CoreManager
 		tasks = null;
 	    }
 
+	    client.setAuthToken(authToken);
 	    if (!manager.validTokens.contains(authToken)) {
 		System.err.println("authentication failed for client " + client.
 			getStringAddress() + " with token " + authToken);
+		stopWorking();
+		tasks = null;
+	    } else if (manager.blockedTokens.contains(authToken)) {
+		System.out.println("blocked client " + client.getStringAddress()
+			+ " with token " + authToken);
 		stopWorking();
 		tasks = null;
 	    } else if (!manager.authenticatedClient(this, authToken)) {
@@ -521,6 +625,7 @@ public class CoreManager
 
 	public void stopWorking() {
 	    working = false;
+	    client.onClosing();
 	}
 
 	public String getToken() {
@@ -572,6 +677,10 @@ public class CoreManager
 			    relativeFilePath(
 				    file.getPath()), file.getPath());
 		    break;
+		}
+
+		case GLOBAL_CHECK: {
+
 		}
 	    }
 	}

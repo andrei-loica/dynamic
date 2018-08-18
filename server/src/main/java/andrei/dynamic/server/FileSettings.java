@@ -1,30 +1,31 @@
-package andrei.dynamic.server.jaxb;
+package andrei.dynamic.server;
 
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlAttribute;
-import javax.xml.bind.annotation.XmlElement;
+import andrei.dynamic.server.jaxb.XmlFileGroup;
+import andrei.dynamic.server.jaxb.XmlFileSettings;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  *
  * @author Andrei
  */
-@XmlAccessorType(XmlAccessType.NONE)
 public class FileSettings {
-    
-    @XmlAttribute
     private String rootDirectory;
-    
-    @XmlAttribute
     private int maxDirectoryDepth;
-    
-    @XmlAttribute
     private int checkPeriodMillis;
+    private ArrayList<XmlFileGroup> groups;
     
-    @XmlElement(name = "file-group")
-    private FileGroup[] groups;
+    public FileSettings(){
+	
+    }
+    
+    public FileSettings(final XmlFileSettings original){
+	rootDirectory = original.getRootDirectory();
+	maxDirectoryDepth = original.getMaxDirectoryDepth();
+	checkPeriodMillis = original.getCheckPeriodMillis();
+	groups = new ArrayList(Arrays.asList(original.getGroups()));
+    }
 
-    
     public String getRootDirectory() {
 	return rootDirectory;
     }
@@ -48,13 +49,12 @@ public class FileSettings {
     public void setCheckPeriodMillis(int checkPeriodMillis) {
 	this.checkPeriodMillis = checkPeriodMillis;
     }
-    
-    public FileGroup[] getGroups() {
+
+    public ArrayList<XmlFileGroup> getGroups() {
 	return groups;
     }
 
-    public void setGroups(FileGroup[] groups) {
+    public void setGroups(ArrayList<XmlFileGroup> groups) {
 	this.groups = groups;
     }
-    
 }

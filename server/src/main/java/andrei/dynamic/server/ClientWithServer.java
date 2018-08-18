@@ -1,6 +1,6 @@
 package andrei.dynamic.server;
 
-import andrei.dynamic.server.jaxb.FileGroup;
+import andrei.dynamic.server.jaxb.XmlFileGroup;
 import andrei.dynamic.common.Address;
 import andrei.dynamic.common.MessageFactory;
 import andrei.dynamic.common.MessageType;
@@ -23,10 +23,12 @@ public class ClientWithServer
     private final CoreManager manager;
     private final Socket socket;
     private final Address clientControlAddress;
+    private String authToken;
     private final int localDataPort;
     private DataOutputStream out;
     private DataInputStream in;
-    private FileGroup files;
+    private XmlFileGroup files;
+    private boolean closing;
 
     public ClientWithServer(final Socket socket, int localDataPort,
 	    final CoreManager manager) throws Exception {
@@ -51,6 +53,7 @@ public class ClientWithServer
 		getHostAddress(),
 		socket.getPort());
 	this.localDataPort = localDataPort;
+	closing = false;
 	System.out.println(clientControlAddress.getHost() + " and port "
 		+ clientControlAddress.getPort());
     }
@@ -61,6 +64,14 @@ public class ClientWithServer
 
     public String getStringAddress() {
 	return clientControlAddress.toString();
+    }
+    
+    public void setAuthToken(final String token){
+	authToken = token;
+    }
+    
+    public String getAuthToken(){
+	return authToken;
     }
 
     public void sendCreateFileMessage(final String relative,
@@ -162,11 +173,20 @@ public class ClientWithServer
     }
 
     public void disconnect() {
+	onClosing();
 	try {
 	    socket.close();
 	} catch (Exception ex) {
 	    System.err.println("failed closing client " + clientControlAddress);
 	}
+    }
+    
+    public void onClosing(){
+	closing = true;
+    }
+    
+    public boolean isClosing(){
+	return closing;
     }
 
     //TODO hash si equals

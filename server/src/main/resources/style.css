@@ -1,6 +1,6 @@
 body {
 	margin: 0;
-	font-family: "Lucida Sans Unicode", "Lucida Grande", sans-serif;
+	font-family: Arial, Helvetica, sans-serif;
 }
 
 #menu{
@@ -15,9 +15,9 @@ body {
 }
 
 #menu li{
-	font-family: "Comic Sans MS", cursive, sans-serif;
-	padding: 5px;
-	padding-left: 25px;
+	/*font-family: "Comic Sans MS", cursive, sans-serif;*/
+    font-size: 18px;
+	padding: 5px 5px 5px 25px;
 	width: 7em;
 	float: left;
 	/*background-color: rgb(180, 240, 220);*/
@@ -27,8 +27,7 @@ body {
 }
 
 #menu .selected{
-	padding: 7px 5px 7px 25px;
-	background: linear-gradient(to bottom, rgb(220, 245, 230), rgb(120, 200, 180));
+	background: linear-gradient(to bottom, rgb(210, 240, 225), rgb(100, 180, 165));
 }
 
 #menu li:not(.selected):hover{
@@ -251,7 +250,7 @@ input[type="submit"]:hover {
 
 th {
         text-align: left;
-	font-size: 14px;
+	font-size: 15px;
 	border: 1px solid rgb(160,160,160);
 	padding: 10px;
 	font-weight: normal;
@@ -272,7 +271,6 @@ table {
 }
 
 #table-description th{
-	font-size: 15px;
 	border: 1px solid rgb(120,120,120);
 	background-color: rgb(240,240,240);
 	font-weight: bold;

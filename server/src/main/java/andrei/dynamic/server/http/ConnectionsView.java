@@ -81,7 +81,7 @@ public class ConnectionsView
 			getStringAddress()
 			+ "</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/unblock?client="
 			+ client.getAuthToken()
-			+ " \">unblock</a></th></tr>";
+			+ " \" onclick=\"return confirm('Confirm unblock action?')\">unblock</a></th></tr>";
 	    } else if (client.isClosing()) {
 		content = content
 			+ "<tr><th class=\"aligned-cell\"><span class=\"closing\" title=\"Disconnecting\"></span></th><th>"
@@ -111,7 +111,7 @@ public class ConnectionsView
 			+ "<tr><th class=\"aligned-cell\"><span class=\"blocked\" title=\"Blocked\"></span></th><th>"
 			+ client
 			+ "</th><th>N/A</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/unblock?client="
-			+ client + "\">unblock</a></th></tr>";
+			+ client + "\" onclick=\"return confirm('Confirm unblock action?')\">unblock</a></th></tr>";
 	    } else {
 		content = content
 			+ "<tr><th class=\"aligned-cell\"><span class=\"offline\" title=\"Not connected\"></span></th><th>"
@@ -126,7 +126,7 @@ public class ConnectionsView
 		    + "<tr><th class=\"aligned-cell\"><span class=\"blocked\" title=\"Blocked and not configured\"></span></th><th>"
 		    + client
 		    + "</th><th>N/A</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/unblock?client="
-		    + client + "\">unblock</a></th></tr>";
+		    + client + "\" onclick=\"return confirm('Confirm unblock action?')\">unblock</a></th></tr>";
 
 	}
 

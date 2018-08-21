@@ -382,11 +382,11 @@ public class CoreManager
 		}
 	    }
 	    
-	    System.out.println(current.getKey());
+	    /*System.out.println(current.getKey());
 	    for (String token : current.getValue()) {
 		System.out.print(token + " ");
 	    }
-	    System.out.println();
+	    System.out.println();*/
 	}
 
 	for (Entry<String, ClientWorker> entry : connectedTokensWithWorkers.

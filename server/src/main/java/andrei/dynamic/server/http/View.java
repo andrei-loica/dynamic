@@ -6,8 +6,10 @@ import com.sun.net.httpserver.HttpHandler;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.URLDecoder;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -65,7 +67,7 @@ public abstract class View
     protected String headWithCss() {
 	return "<head><link rel=\"stylesheet\" type=\"text/css\" href=\"/static/css\"></head>";
     }
-    
+
     protected String headWithCssAndJs() {
 	return "<head><link rel=\"stylesheet\" type=\"text/css\" href=\"/static/css\"><script src=\"/static/js\"></script></head>";
     }
@@ -82,23 +84,35 @@ public abstract class View
 	}
 
     }
-    
-    protected List<String> parsePostRequestQuery(final HttpExchange req){
-	
-	final ArrayList<String> result = new ArrayList<>();
-	
-	final BufferedInputStream in = new BufferedInputStream(req.getRequestBody());
-	final byte[] buff = new byte[1024];
-	
+
+    protected List<String> parsePostRequestQuery(final HttpExchange req) throws
+	    Exception {
+
+	final BufferedInputStream in = new BufferedInputStream(req.
+		getRequestBody());
+	final byte[] buff = new byte[8192];
+	int totalRead = 0;
+	int lastRead;
+
 	try {
-	    in.mark(1024);
-	    
-	} catch (Exception ex){
+	    while ((lastRead = in.read(buff, totalRead, 8192 - totalRead)) != -1) {
+		totalRead += lastRead;
+		if (totalRead > 8191) {
+		    break;
+		}
+	    }
+	} catch (Exception ex) {
 	    return null;
 	}
-	
-	return result;
-	
+
+	final String decoded = URLDecoder.decode(new String(buff), "UTF-8").
+		trim();
+	if (decoded.indexOf('&') == -1) {
+	    return Arrays.asList(decoded.split(";"));
+	}
+
+	return Arrays.asList(decoded.split("&"));
+
     }
 
 }

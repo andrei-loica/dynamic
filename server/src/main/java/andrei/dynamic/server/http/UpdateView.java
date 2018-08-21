@@ -4,10 +4,10 @@ import andrei.dynamic.common.MessageFactory;
 import andrei.dynamic.server.CoreManager;
 import andrei.dynamic.server.ServerConfiguration;
 import andrei.dynamic.server.jaxb.XmlFileGroup;
-import andrei.dynamic.server.jaxb.XmlFileGroupElement;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 
@@ -41,11 +41,10 @@ public class UpdateView
 	    case "/files/":
 		try {
 		    final HashSet<String> clients = new HashSet();
-		    final ArrayList<XmlFileGroupElement> files = new ArrayList();
+		    final ArrayList<String> files = new ArrayList();
 		    int idx = -1;
 
-		    for (String entry : req.getRequestURI().getQuery().
-			    split("&")) {
+		    for (String entry : parsePostRequestQuery(req)) {
 			final String[] pair = parsePair(entry);
 
 			switch (pair[0]) {
@@ -67,11 +66,7 @@ public class UpdateView
 				    return;
 				}
 				if (pair[1].length() > 0) {
-				    XmlFileGroupElement file
-					    = new XmlFileGroupElement();
-				    file.setLocalPath(pair[1]);
-				    file.setRemotePath(pair[1]);
-				    files.add(file);
+				    files.add(pair[1]);
 				}
 				break;
 
@@ -99,22 +94,26 @@ public class UpdateView
 				XmlFileGroup.index--;
 				core.saveConfig();
 			    }
+			    redirectTo("/files", req);
+			    return;
 			}
 			synchronized (config) {
 			    final XmlFileGroup group = config.getFileSettings().
 				    getGroups().get(
 					    idx - 1);
-			    group.setClients((String[]) clients.toArray());
-			    group.setFiles((XmlFileGroupElement[]) files.
-				    toArray());
+			    group.setClients(Arrays.copyOf(clients.toArray(),
+				    clients.size(), String[].class));
+			    group.setFiles(Arrays.copyOf(files.toArray(), files.
+				    size(), String[].class));
 			    core.saveConfig();
 			}
 		    } else if (!clients.isEmpty() && !files.isEmpty()) {
 			synchronized (config) {
 			    final XmlFileGroup group = new XmlFileGroup();
-			    group.setClients((String[]) clients.toArray());
-			    group.setFiles((XmlFileGroupElement[]) files.
-				    toArray());
+			    group.setClients(Arrays.copyOf(clients.toArray(),
+				    clients.size(), String[].class));
+			    group.setFiles(Arrays.copyOf(files.toArray(), files.
+				    size(), String[].class));
 			    group.setOrder(++XmlFileGroup.index);
 			    config.getFileSettings().getGroups().add(group);
 			    core.saveConfig();
@@ -124,6 +123,7 @@ public class UpdateView
 		} catch (Exception ex) {
 		    System.err.println("failed to update files: " + ex.
 			    getMessage());
+		    ex.printStackTrace(System.out);
 		}
 		redirectTo("/files", req);
 
@@ -174,13 +174,13 @@ public class UpdateView
 
 		    final ServerConfiguration config = core.getConfig();
 		    synchronized (config) {
-			if (localControlPort >= 0) {
+			if (localControlPort >= 0 && localControlPort < 65536) {
 			    config.setLocalControlPort(localControlPort);
 			}
-			if (localDataPort >= 0) {
+			if (localDataPort >= 0 && localDataPort < 65536) {
 			    config.setLocalDataPort(localDataPort);
 			}
-			if (localHttpPort >= 0) {
+			if (localHttpPort >= 0 && localHttpPort < 65536) {
 			    config.setLocalHttpPort(localHttpPort);
 			}
 			if (maxClientConnections >= 0) {

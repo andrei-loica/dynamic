@@ -81,7 +81,7 @@ public class ConnectionsView
 			getStringAddress()
 			+ "</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/unblock?client="
 			+ client.getAuthToken()
-			+ "\">unblock</a></th></tr>";
+			+ " \">unblock</a></th></tr>";
 	    } else if (client.isClosing()) {
 		content = content
 			+ "<tr><th class=\"aligned-cell\"><span class=\"closing\" title=\"Disconnecting\"></span></th><th>"
@@ -89,7 +89,7 @@ public class ConnectionsView
 			getStringAddress()
 			+ "</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/block?client="
 			+ client.getAuthToken()
-			+ "\">block</a></th></tr>";
+			+ "\" onclick=\"return confirm('Confirm block action?')\">block</a></th></tr>";
 	    } else {
 		content = content
 			+ "<tr><th class=\"aligned-cell\"><span class=\"connected\" title=\"Connected\"></span></th><th>"
@@ -97,11 +97,11 @@ public class ConnectionsView
 			getStringAddress()
 			+ "</th><th class=\"aligned-cell\"><a href=\"/actions/push?client="
 			+ client.getAuthToken()
-			+ "\">push</a></th><th class=\"aligned-cell\"><a href=\"/actions/disconnect?client="
+			+ "\" onclick=\"return confirm('Confirm push action?')\">push</a></th><th class=\"aligned-cell\"><a href=\"/actions/disconnect?client="
 			+ client.getAuthToken()
-			+ "\">disconnect</a></th><th class=\"aligned-cell\"><a href=\"/actions/block?client="
+			+ "\" onclick=\"return confirm('Confirm disconnect action?')\">disconnect</a></th><th class=\"aligned-cell\"><a href=\"/actions/block?client="
 			+ client.getAuthToken()
-			+ "\">block</a></th></tr>";
+			+ "\" onclick=\"return confirm('Confirm block action?')\">block</a></th></tr>";
 	    }
 	}
 
@@ -117,7 +117,7 @@ public class ConnectionsView
 			+ "<tr><th class=\"aligned-cell\"><span class=\"offline\" title=\"Not connected\"></span></th><th>"
 			+ client
 			+ "</th><th>N/A</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/block?client="
-			+ client + "\">block</a></th></tr>";
+			+ client + "\" onclick=\"return confirm('Confirm block action?')\">block</a></th></tr>";
 	    }
 	}
 

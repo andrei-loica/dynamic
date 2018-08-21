@@ -3,6 +3,7 @@ package andrei.dynamic.server;
 import andrei.dynamic.server.jaxb.XmlFileGroup;
 import andrei.dynamic.server.jaxb.XmlFileSettings;
 import andrei.dynamic.server.jaxb.XmlServerConfiguration;
+import java.util.Arrays;
 
 /**
  *
@@ -77,7 +78,8 @@ public class ServerConfiguration {
 	
 	final XmlFileSettings convertedSettings = new XmlFileSettings();
 	convertedSettings.setCheckPeriodMillis(fileSettings.getCheckPeriodMillis());
-	convertedSettings.setGroups((XmlFileGroup[]) fileSettings.getGroups().toArray());
+	convertedSettings.setGroups(Arrays.copyOf(fileSettings.getGroups().toArray(), fileSettings.getGroups().size(),
+		XmlFileGroup[].class));
 	convertedSettings.setMaxDirectoryDepth(fileSettings.getMaxDirectoryDepth());
 	convertedSettings.setRootDirectory(fileSettings.getRootDirectory());
 	

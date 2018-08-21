@@ -9,19 +9,27 @@ function changeNewGroupVision() {
 }
 
 function addClientNode(id){
-	var client = document.createElement("input");
-	client.setAttribute("type", "text");
-	client.setAttribute("name", "client");
-	
 	var parent = document.getElementById(id);
-	parent.appendChild(client);
+	if (parent.childElementCount < 10) {
+            var client = document.createElement("input");
+            client.setAttribute("type", "text");
+            client.setAttribute("name", "client");
+	
+            parent.appendChild(client);
+	} else {
+            document.getElementById("add-button_" + id).style.display = "none";
+	}
 }
 
 function addFileNode(id){
-	var client = document.createElement("input");
-	client.setAttribute("type", "text");
-	client.setAttribute("name", "file");
-	
 	var parent = document.getElementById(id);
-	parent.appendChild(client);
+	if (parent.childElementCount < 10) {
+            var client = document.createElement("input");
+            client.setAttribute("type", "text");
+            client.setAttribute("name", "file");
+	
+            parent.appendChild(client);
+	} else {
+            document.getElementById("add-button_" + id).style.display = "none";
+	}
 }

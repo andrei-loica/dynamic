@@ -2,7 +2,6 @@ package andrei.dynamic.server.jaxb;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
 
 /**
@@ -18,7 +17,7 @@ public class XmlFileGroup {
     private String[] clients;
     
     @XmlElement(name = "file")
-    private XmlFileGroupElement[] files;
+    private String[] files;
     
     private int order;
 
@@ -30,11 +29,11 @@ public class XmlFileGroup {
 	this.clients = clients;
     }
 
-    public XmlFileGroupElement[] getFiles() {
+    public String[] getFiles() {
 	return files;
     }
 
-    public void setFiles(XmlFileGroupElement[] files) {
+    public void setFiles(String[] files) {
 	this.files = files;
     }
 

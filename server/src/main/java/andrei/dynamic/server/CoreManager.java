@@ -6,7 +6,6 @@ import andrei.dynamic.common.DirectoryChangesListener;
 import andrei.dynamic.common.DirectoryManager;
 import andrei.dynamic.server.http.HttpManager;
 import andrei.dynamic.server.jaxb.XmlFileGroup;
-import andrei.dynamic.server.jaxb.XmlFileGroupElement;
 import java.io.File;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -31,13 +30,13 @@ public class CoreManager
 	implements DirectoryChangesListener {
 
     private final DirectoryManager dir;
-    private ServerConfiguration config;
+    private final ServerConfiguration config;
     private final String configFilePath;
     private ConnectionListener connectionListener; //should never be null
     private ServerSocket dataServer;
     private HttpManager httpManager;
     private final HashMap<String, HashSet<String>> tokensForContent; //<relativeFileName, tokens>
-    private final HashMap<String, HashSet<XmlFileGroupElement>> contentForToken; //<token, relativeFileNames>
+    private final HashMap<String, HashSet<String>> contentForToken; //<token, relativeFileNames>
     private final HashSet<String> validTokens;
     private final HashSet<String> offlineTokens;
     private final HashSet<String> blockedTokens;
@@ -189,6 +188,16 @@ public class CoreManager
 	System.out.println("connection listener stopped");
 	dir.stop();
 
+	if (clientWorkers.isEmpty()) {
+	    try {
+		dataServer.close();
+		System.out.println("closed data transfer server");
+	    } catch (Exception ex) {
+		System.err.println("failed to close data server: " + ex.
+			getMessage());
+	    }
+	}
+	
 	for (ClientWorker worker : clientWorkers) {
 	    System.out.println("sent stop for worker " + worker.getClient().
 		    getStringAddress());
@@ -206,7 +215,8 @@ public class CoreManager
 		+ " closed");
 
 	boolean wasConnected;
-	if (!(wasConnected = (connectedTokensWithWorkers.remove(worker.getToken())
+	if (!(wasConnected = (connectedTokensWithWorkers.remove(worker.
+		getToken())
 		!= null))) {
 	    System.out.println("clientul " + worker.getToken()
 		    + " nu era conectat");
@@ -307,8 +317,7 @@ public class CoreManager
 
     private void writeConfig() throws Exception {
 	JAXBContext context = JAXBContext.newInstance(
-		XmlServerConfiguration.class
-	);
+		XmlServerConfiguration.class);
 	Marshaller m = context.createMarshaller();
 	m.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
 	m.marshal(config.toJaxb(), new File(configFilePath));
@@ -323,18 +332,18 @@ public class CoreManager
 	for (XmlFileGroup group : config.getFileSettings().getGroups()) {
 	    group.setOrder(++XmlFileGroup.index);
 	    if (group.getFiles() != null) {
-		for (XmlFileGroupElement file : group.getFiles()) {
+		for (String file : group.getFiles()) {
 		    HashSet<String> tokens = tokensForContent.get(dir.
-			    normalizeRelativePath(file.getLocalPath()));
+			    normalizeRelativePath(file));
 		    if (tokens == null) {
 			tokens = new HashSet<>();
-			tokensForContent.put(dir.normalizeRelativePath(file.
-				getLocalPath()), tokens);
+			tokensForContent.put(dir.normalizeRelativePath(file),
+				tokens);
 		    }
 		    if (group.getClients() != null) {
 			for (String token : group.getClients()) {
 			    tokens.add(token);
-			    HashSet<XmlFileGroupElement> files
+			    HashSet<String> files
 				    = contentForToken.get(token);
 			    if (files == null) {
 				files = new HashSet<>();
@@ -372,12 +381,12 @@ public class CoreManager
 		    current.getValue().addAll(other.getValue());
 		}
 	    }
-	    /*
+	    
 	    System.out.println(current.getKey());
 	    for (String token : current.getValue()) {
 		System.out.print(token + " ");
 	    }
-	    System.out.println();*/
+	    System.out.println();
 	}
 
 	for (Entry<String, ClientWorker> entry : connectedTokensWithWorkers.
@@ -438,21 +447,13 @@ public class CoreManager
 	}
     }
 
-    public void saveConfig() {
-	try {
-	    writeConfig();
-	} catch (Exception ex) {
-	    System.err.println("failed to save new configuration");
-	}
+    public void saveConfig() throws Exception {
+	processFileSettings();
+	writeConfig();
     }
 
     public ServerConfiguration getConfig() {
 	return config;
-    }
-
-    public void setConfig(final ServerConfiguration config) {
-	this.config = config;
-
     }
 
     //</editor-fold>
@@ -704,10 +705,7 @@ public class CoreManager
 		return false;
 	    }
 	    final ClientWorker other = (ClientWorker) obj;
-	    if (!Objects.equals(this.client, other.client)) {
-		return false;
-	    }
-	    return true;
+	    return Objects.equals(this.client, other.client);
 	}
 
     }

@@ -88,11 +88,12 @@ public class DirectoryManager {
     }
     
     public String normalizeRelativePath(final String relative) throws Exception{
-	if (!relative.startsWith(FileSystems.getDefault().getSeparator())){
-	    return FileSystems.getDefault().getSeparator() + relative;
+	
+	if (relative.charAt(0) != '/' && relative.charAt(0) != '\\'){
+	    return (FileSystems.getDefault().getSeparator() + relative).replace("/", FileSystems.getDefault().getSeparator()).replace("\\", FileSystems.getDefault().getSeparator());
 	}
 	
-	return relative;
+	return relative.replace("/", FileSystems.getDefault().getSeparator()).replace("\\", FileSystems.getDefault().getSeparator());
     }
     
     public boolean isDirectory(final String relative){

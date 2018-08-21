@@ -2,20 +2,18 @@ package andrei.dynamic.server.http;
 
 import andrei.dynamic.server.CoreManager;
 import andrei.dynamic.server.jaxb.XmlFileGroup;
-import andrei.dynamic.server.jaxb.XmlFileGroupElement;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
 /**
  *
  * @author Andrei
  */
-public class FilesView extends View{
+public class FilesView
+	extends View {
 
     private final CoreManager core;
 
@@ -42,29 +40,53 @@ public class FilesView extends View{
 
 	req.close();
     }
-    
+
     private void writePage(final OutputStream out) throws IOException {
 
 	final ArrayList<XmlFileGroup> groups = core.getFileGroups();
-	
-	String content = headWithCssAndJs() + "<body>" + menu(2) + "<div id=\"files-content\"><div class=\"description\"><span>Configured file groups&nbsp&nbsp</span><button id=\"vision-button\" onClick=\"changeNewGroupVision()\"> + </button></div><form style=\"display: none\" id=\"new-group\" action=\"/update/files\" method=\"POST\"><label>Clients:</label> <button id=\"add-button\" type=\"button\" onClick=\"addClientNode('0_c')\"> + </button><div id=\"0_c\"><input type=\"hidden\" name=\"idx\" value=\"0\"><input type=\"text\" name=\"client\"></div><br><label>Files:</label> <button id=\"add-button\" type=\"button\" onClick=\"addFileNode('0_f')\"> + </button><div id=\"0_f\"><input type=\"text\" name=\"file\"></div><input type=\"submit\" value=\"Add\"></form>";
-	
-	for (XmlFileGroup group : groups){
-	    content = content + "<form action=\"/update/files\" method=\"POST\" enctype=\"application/x-www-form-urlencoded\"><label>Clients:</label> <button id=\"add-button\" type=\"button\" onClick=\"addClientNode('" + group.getOrder() + "_c')\"> + </button><div id=\"" + group.getOrder() + "_c\"><input type=\"hidden\" name=\"idx\" value=\"" + group.getOrder() + "\">";
-	    
-	    for (String client : group.getClients()){
-		content = content + "<input type=\"text\" name=\"client\" value=\"" + client + "\">";
+
+	String content = headWithCssAndJs() + "<body>" + menu(2)
+		+ "<div id=\"files-content\"><div class=\"description\"><span>Configured file groups&nbsp&nbsp</span><button id=\"vision-button\" onClick=\"changeNewGroupVision()\"> + </button></div><form style=\"display: none\" id=\"new-group\" action=\"/update/files\" method=\"POST\"><label>Clients:</label> <button id=\"add-button\" type=\"button\" onClick=\"addClientNode('0_c')\"> + </button><div id=\"0_c\"><input type=\"hidden\" name=\"idx\" value=\"0\"><input type=\"text\" name=\"client\"></div><br><label>Files:</label> <button id=\"add-button\" type=\"button\" onClick=\"addFileNode('0_f')\"> + </button><div id=\"0_f\"><input type=\"text\" name=\"file\"></div><input type=\"submit\" value=\"Add\"></form>";
+
+	for (XmlFileGroup group : groups) {
+	    content = content
+		    + "<form action=\"/update/files\" method=\"POST\" enctype=\"application/x-www-form-urlencoded\"><label>Clients:</label> <button id=\"add-button_" + group.getOrder() + "_c\" type=\"button\" onClick=\"addClientNode('"
+		    + group.getOrder() + "_c')\"> + </button><div id=\""
+		    + group.getOrder()
+		    + "_c\"><input type=\"hidden\" name=\"idx\" value=\""
+		    + group.getOrder() + "\">";
+	    if (group.getClients() == null) {
+		content = content
+			+ "<input type=\"text\" name=\"client\" value=\"\">";
+	    } else {
+		for (String client : group.getClients()) {
+		    content = content
+			    + "<input type=\"text\" name=\"client\" value=\""
+			    + client + "\">";
+		}
 	    }
-	    content = content + "</div><br><label>Files:</label> <button id=\"add-button\" type=\"button\" onClick=\"addFileNode('" + group.getOrder() + "_f')\"> + </button><div id=\"" + group.getOrder() + "_f\">";
-	    
-	    for (XmlFileGroupElement file : group.getFiles()){
-		content = content + "<input type=\"text\" name=\"file\" value=\"" + file.getLocalPath() + "\">";
+	    content = content
+		    + "</div><br><label>Files:</label> <button id=\"add-button_" + group.getOrder() + "_f\" type=\"button\" onClick=\"addFileNode('"
+		    + group.getOrder() + "_f')\"> + </button><div id=\""
+		    + group.getOrder() + "_f\">";
+
+	    if (group.getFiles() == null) {
+		content = content
+			+ "<input type=\"text\" name=\"file\" value=\"\">";
+	    } else {
+		for (String file : group.getFiles()) {
+		    content = content
+			    + "<input type=\"text\" name=\"file\" value=\""
+			    + file
+			    + "\">";
+		}
 	    }
-	    content = content + "</div><input type=\"submit\" value=\"Update\"></form>";
+	    content = content
+		    + "</div><input type=\"submit\" value=\"Update\"></form>";
 	}
-	
+
 	content = content + "</div></body>";
 	out.write(content.getBytes());
     }
-    
+
 }

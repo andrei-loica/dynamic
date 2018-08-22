@@ -68,9 +68,9 @@ public class ConnectionsView
 
 	String content
 		= headWithCss() + "<body>" + menu(1)
-		+ "<div id=\"conn-content\"><div class=\"description\">Configured clients&nbsp&nbsp<i style=\"font-size: 15px\">("
+		+ "<div id=\"conn-content\"><div class=\"description\"><div>Configured clients&nbsp&nbsp<i style=\"font-size: 15px\">("
 		+ connected.size() + "/" + (connected.size() + offline.size())
-		+ " connected)</i></div><table id=\"connections\"><tr id=\"table-description\"><th>State</th><th>Name</th><th>Connected IP Address</th><th colspan=\"3\" style=\"text-align: center\">Actions</th></tr>";
+		+ " connected)</i></div></div><table id=\"connections\"><tr id=\"table-description\"><th>State</th><th>Name</th><th>Connected IP Address</th><th colspan=\"3\" style=\"text-align: center\">Actions</th></tr>";
 
 	for (ClientWithServer client : connected) {
 	    blockedNotConfigured.remove(client.getAuthToken());

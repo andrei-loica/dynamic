@@ -32,6 +32,9 @@ public class ClientConfiguration {
     
     @XmlElement
     private String clientAuthToken;
+    
+    @XmlElement
+    private String key;
 
     
     public String getRemoteControlAddress() {
@@ -88,6 +91,14 @@ public class ClientConfiguration {
 
     public void setClientAuthToken(String clientAuthToken) {
 	this.clientAuthToken = clientAuthToken;
+    }
+
+    public String getKey() {
+	return key;
+    }
+
+    public void setKey(String key) {
+	this.key = key;
     }
     
 }

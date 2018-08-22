@@ -9,8 +9,18 @@ import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.Socket;
+import java.security.Key;
 import java.util.Objects;
+import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
+import javax.crypto.CipherOutputStream;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.SecretKeySpec;
 
 /**
  *
@@ -25,8 +35,8 @@ public class ClientWithServer
     private final Address clientControlAddress;
     private String authToken;
     private final int localDataPort;
-    private DataOutputStream out;
-    private DataInputStream in;
+    private CipherOutputStream out;
+    private CipherInputStream in;
     private XmlFileGroup files;
     private boolean closing;
 
@@ -46,8 +56,8 @@ public class ClientWithServer
 	    System.err.println("could not enable socket reading timeout");
 	}
 
-	out = new DataOutputStream(socket.getOutputStream());
-	in = new DataInputStream(socket.getInputStream());
+	out = getCipherOutputStream(socket.getOutputStream());
+	in = getCipherInputStream(socket.getInputStream());
 
 	clientControlAddress = new Address(socket.getInetAddress().
 		getHostAddress(),
@@ -65,12 +75,12 @@ public class ClientWithServer
     public String getStringAddress() {
 	return clientControlAddress.toString();
     }
-    
-    public void setAuthToken(final String token){
+
+    public void setAuthToken(final String token) {
 	authToken = token;
     }
-    
-    public String getAuthToken(){
+
+    public String getAuthToken() {
 	return authToken;
     }
 
@@ -79,6 +89,7 @@ public class ClientWithServer
 	try {
 	    byte[] msg = MessageFactory.newCreatedFileMessage(relative);
 	    out.write(msg);
+	    out.flush();
 	    System.out.println("written " + relative + " of length "
 		    + msg.length);
 	    startUploading(absolute);
@@ -93,6 +104,7 @@ public class ClientWithServer
 	try {
 	    byte[] msg = MessageFactory.newDeletedFileMessage(relative);
 	    out.write(msg);
+	    out.flush();
 	    System.out.println("written " + relative + " of length "
 		    + msg.length);
 	} catch (Exception ex) {
@@ -106,6 +118,7 @@ public class ClientWithServer
 	try {
 	    byte[] msg = MessageFactory.newModifiedFileMessage(relative);
 	    out.write(msg);
+	    out.flush();
 	    System.out.println("written " + relative + " of length "
 		    + msg.length);
 	    startUploading(absolute);
@@ -118,9 +131,8 @@ public class ClientWithServer
     public void startUploading(final String absolute) throws Exception {
 
 	try (final Socket dataSocket = manager.acceptDataConnection();
-		final BufferedOutputStream dataOutput
-		= new BufferedOutputStream(
-			dataSocket.getOutputStream());
+		final CipherOutputStream dataOutput
+		= getCipherOutputStream(dataSocket.getOutputStream());
 		final BufferedInputStream fileInput = new BufferedInputStream(
 			new FileInputStream(absolute));) {
 
@@ -144,20 +156,21 @@ public class ClientWithServer
 	}
 
 	try {
-	    if (in.readByte() != (byte) MessageType.TEST_MESSAGE_RSP.getCode()) {
+	    if (in.read() != MessageType.TEST_MESSAGE_RSP.getCode()) {
 		throw new MustResetConnectionException();
 	    }
 	} catch (MustResetConnectionException ex) {
 	    throw ex;
 	} catch (Exception ex) {
+	    ex.printStackTrace(System.out);
 	    return null;
 	}
 
-	int counter = 0;
-	byte[] buff = new byte[130];
-	while (counter < 128) {
+	int counter = 1;
+	byte[] buff = new byte[MessageFactory.TEST_MSG_DIM];
+	while (counter < MessageFactory.TEST_MSG_DIM) {
 	    try {
-		counter += in.read(buff, counter, 128 - counter);
+		counter += in.read(buff, counter - 1, MessageFactory.TEST_MSG_DIM - counter);
 	    } catch (Exception ex) {
 		throw new MustResetConnectionException();
 	    }
@@ -166,9 +179,30 @@ public class ClientWithServer
 	return new String(MessageFactory.trimPadding(buff));
     }
 
+    private CipherOutputStream getCipherOutputStream(final OutputStream out)
+	    throws Exception {
+	final SecretKeySpec spec = new SecretKeySpec(manager.getSecretKey(),
+		"AES");
+	final Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
+	cipher.init(Cipher.ENCRYPT_MODE, spec);
+
+	return new CipherOutputStream(out, cipher);
+    }
+
+    private CipherInputStream getCipherInputStream(final InputStream in) throws
+	    Exception {
+	final SecretKeySpec spec = new SecretKeySpec(manager.getSecretKey(),
+		"AES");
+	final Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
+	cipher.init(Cipher.DECRYPT_MODE, spec);
+
+	return new CipherInputStream(in, cipher);
+    }
+
     private void sendTestMessage() throws Exception {
 	byte[] msg = MessageFactory.newTestMessage();
 	out.write(msg);
+	out.flush();
 	//System.out.println("written test message");
     }
 
@@ -180,12 +214,12 @@ public class ClientWithServer
 	    System.err.println("failed closing client " + clientControlAddress);
 	}
     }
-    
-    public void onClosing(){
+
+    public void onClosing() {
 	closing = true;
     }
-    
-    public boolean isClosing(){
+
+    public boolean isClosing() {
 	return closing;
     }
 

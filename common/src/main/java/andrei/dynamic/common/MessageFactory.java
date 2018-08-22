@@ -8,8 +8,8 @@ import java.util.Arrays;
  */
 public class MessageFactory {
 
-    public static final int UPDATE_FILE_MSG_DIM = 129;
-    public static final int TEST_MSG_DIM = 129;
+    public static final int UPDATE_FILE_MSG_DIM = 256;
+    public static final int TEST_MSG_DIM = 256;
 
     private MessageFactory() {
 

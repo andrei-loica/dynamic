@@ -16,7 +16,7 @@ public class MessageFromServer {
 
     }
 
-    public MessageFromServer(byte type, byte[] content) {
+    public MessageFromServer(int type, byte[] content) {
 
 	this.type = MessageType.parseCode(type);
 	this.content = content;

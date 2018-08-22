@@ -92,7 +92,7 @@ public class Main
 	Runtime.getRuntime().addShutdownHook(shutdownHook);
 
 	client = new ClientConnection(controlAddress, dataAddress, dir,
-		initialConfig.getClientAuthToken());
+		initialConfig.getClientAuthToken(), initialConfig.getKey());
 
 	try {
 	    client.start(keepAlive);
@@ -133,6 +133,10 @@ public class Main
 	    throw new Exception(
 		    "invalid remote data port number in client configuration");
 	}
+	
+	if (initialConfig.getKey() == null || initialConfig.getKey().isEmpty()){
+	    throw new Exception("invalid key");
+	}
 
 	if (initialConfig.getDirectoryPath() == null) {
 	    throw new Exception(
@@ -148,7 +152,9 @@ public class Main
     @Override
     public void onShutdown() {
 	System.out.println("shutdown signal");
-	client.stop();
+	if (client != null) {
+	    client.stop();
+	}
 	try {
 	    Thread.sleep(7000);
 	} catch (InterruptedException ex) {

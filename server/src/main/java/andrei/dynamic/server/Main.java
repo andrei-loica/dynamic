@@ -29,7 +29,8 @@ public class Main
 
     public Main(final String configFilePath) throws Exception {
 
-	JAXBContext context = JAXBContext.newInstance(XmlServerConfiguration.class);
+	JAXBContext context = JAXBContext.newInstance(
+		XmlServerConfiguration.class);
 	Unmarshaller um = context.createUnmarshaller();
 	initialConfig = (XmlServerConfiguration) um.unmarshal(new File(
 		configFilePath));
@@ -98,7 +99,8 @@ public class Main
 	shutdownHook = new Thread(new ShutdownTask(this, mainThread));
 	Runtime.getRuntime().addShutdownHook(shutdownHook);
 
-	manager = new CoreManager(new ServerConfiguration(initialConfig), configFilePath, dir);
+	manager = new CoreManager(new ServerConfiguration(initialConfig),
+		configFilePath, dir);
 
 	try {
 	    manager.start();
@@ -113,7 +115,9 @@ public class Main
     @Override
     public void onShutdown() {
 	System.out.println("shutdown signal");
-	manager.stop();
+	if (manager != null) {
+	    manager.stop();
+	}
 	try {
 	    Thread.sleep(7000);
 	} catch (InterruptedException ex) {
@@ -154,6 +158,10 @@ public class Main
 
 	if (initialConfig.getLocalDataPort() == initialConfig.getLocalHttpPort()) {
 	    throw new Exception("data and http port must be different");
+	}
+	
+	if (initialConfig.getKey() == null || initialConfig.getKey().isEmpty()){
+	    throw new Exception("invalid key");
 	}
 
 	if (initialConfig.getFileSettings() == null) {

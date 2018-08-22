@@ -10,7 +10,10 @@ import java.io.File;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map.Entry;
@@ -19,6 +22,7 @@ import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import javax.xml.bind.DatatypeConverter;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.Marshaller;
 
@@ -32,6 +36,7 @@ public class CoreManager
     private final DirectoryManager dir;
     private final ServerConfiguration config;
     private final String configFilePath;
+    private final byte[] key;
     private ConnectionListener connectionListener; //should never be null
     private ServerSocket dataServer;
     private HttpManager httpManager;
@@ -59,6 +64,9 @@ public class CoreManager
 	connectedTokensWithWorkers = new HashMap<>();
 	clientWorkers = new ArrayList<>();
 
+	final MessageDigest digest = MessageDigest.getInstance("SHA-256");
+	key = Arrays.copyOf(digest.digest(initialConfig.getKey().getBytes(StandardCharsets.UTF_8)), 16);
+	
 	processFileSettings();
 
     }
@@ -255,6 +263,7 @@ public class CoreManager
 	    //TODO failed to attach wrapper
 	    System.out.println("failed to attach client wrapper for " + client.
 		    getInetAddress());
+	    ex.printStackTrace(System.err);
 	    return;
 	}
 
@@ -313,6 +322,10 @@ public class CoreManager
 		getStringAddress());
 	worker.stopWorking();
 
+    }
+    
+    public byte[] getSecretKey(){
+	return key;
     }
 
     private void writeConfig() throws Exception {
@@ -584,6 +597,7 @@ public class CoreManager
 				    "received wrong token while testing connection on client "
 				    + client.getStringAddress());
 			}
+			System.out.println("closed because token " + token);
 			stopWorking();
 			client.disconnect();
 			manager.clientWorkerStopped(this);
@@ -595,6 +609,7 @@ public class CoreManager
 		} catch (Exception ex) {
 		    //TODO vezi ca nu s-a putut lua un task
 		    System.err.println("failed processing task");
+		    ex.printStackTrace(System.err);
 		}
 	    }
 

@@ -46,39 +46,43 @@ public class FilesView
 	final ArrayList<XmlFileGroup> groups = core.getFileGroups();
 
 	String content = headWithCssAndJs() + "<body>" + menu(2)
-		+ "<div id=\"files-content\"><div class=\"description\"><span>Configured file groups&nbsp&nbsp</span><button id=\"vision-button\" onClick=\"changeNewGroupVision()\"> + </button></div><form style=\"display: none\" id=\"new-group\" action=\"/update/files\" method=\"POST\"><label>Clients:</label> <button id=\"add-button\" type=\"button\" onClick=\"addClientNode('0_c')\"> + </button><div id=\"0_c\"><input type=\"hidden\" name=\"idx\" value=\"0\"><input type=\"text\" name=\"client\"></div><br><label>Files:</label> <button id=\"add-button\" type=\"button\" onClick=\"addFileNode('0_f')\"> + </button><div id=\"0_f\"><input type=\"text\" name=\"file\"></div><input type=\"submit\" value=\"Add\"></form>";
+		+ "<div id=\"files-content\"><div class=\"description\"><div>Configured file groups&nbsp&nbsp</div><div><button id=\"vision-button\" onClick=\"changeNewGroupVision()\"> + </button></div></div><form style=\"display: none\" id=\"new-group\" action=\"/update/files\" method=\"POST\"><label>Clients:</label> <button id=\"add-button\" type=\"button\" onClick=\"addClientNode('0_c')\"> + </button><div id=\"0_c\"><input type=\"hidden\" name=\"idx\" value=\"0\"><input type=\"text\" name=\"client\"></div><br><label>Files:</label> <button id=\"add-button\" type=\"button\" onClick=\"addFileNode('0_f')\"> + </button><div id=\"0_f\"><input type=\"text\" name=\"file\"></div><input type=\"submit\" value=\"Add\"></form>";
 
 	for (XmlFileGroup group : groups) {
 	    content = content
-		    + "<form action=\"/update/files\" method=\"POST\" enctype=\"application/x-www-form-urlencoded\"><label>Clients:</label> <button id=\"add-button_" + group.getOrder() + "_c\" type=\"button\" onClick=\"addClientNode('"
+		    + "<form action=\"/update/files\" method=\"POST\" enctype=\"application/x-www-form-urlencoded\"><label>Clients:</label> <button id=\"add-button_"
+		    + group.getOrder()
+		    + "_c\" type=\"button\" onClick=\"addClientNode('"
 		    + group.getOrder() + "_c')\"> + </button><div id=\""
 		    + group.getOrder()
 		    + "_c\"><input type=\"hidden\" name=\"idx\" value=\""
 		    + group.getOrder() + "\">";
 	    if (group.getClients() == null) {
 		content = content
-			+ "<input type=\"text\" name=\"client\" value=\"\">";
+			+ "<input type=\"text\" name=\"client\" value=\"\" maxlength=\"150\">";
 	    } else {
 		for (String client : group.getClients()) {
 		    content = content
 			    + "<input type=\"text\" name=\"client\" value=\""
-			    + client + "\">";
+			    + client + "\" maxlength=\"150\">";
 		}
 	    }
 	    content = content
-		    + "</div><br><label>Files:</label> <button id=\"add-button_" + group.getOrder() + "_f\" type=\"button\" onClick=\"addFileNode('"
+		    + "</div><br><label>Files:</label> <button id=\"add-button_"
+		    + group.getOrder()
+		    + "_f\" type=\"button\" onClick=\"addFileNode('"
 		    + group.getOrder() + "_f')\"> + </button><div id=\""
 		    + group.getOrder() + "_f\">";
 
 	    if (group.getFiles() == null) {
 		content = content
-			+ "<input type=\"text\" name=\"file\" value=\"\">";
+			+ "<input type=\"text\" name=\"file\" value=\"\" maxlength=\"150\">";
 	    } else {
 		for (String file : group.getFiles()) {
 		    content = content
 			    + "<input type=\"text\" name=\"file\" value=\""
 			    + file
-			    + "\">";
+			    + "\" maxlength=\"150\">";
 		}
 	    }
 	    content = content

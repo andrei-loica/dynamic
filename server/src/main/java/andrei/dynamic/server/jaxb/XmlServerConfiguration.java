@@ -26,6 +26,9 @@ public class XmlServerConfiguration {
     @XmlElement
     private int maxClientConnections;
     
+    @XmlElement
+    private String key;
+    
     @XmlElement(name = "file-settings")
     private XmlFileSettings fileSettings;
     
@@ -60,6 +63,14 @@ public class XmlServerConfiguration {
 
     public void setMaxClientConnections(int maxClientConnections) {
 	this.maxClientConnections = maxClientConnections;
+    }
+
+    public String getKey() {
+	return key;
+    }
+
+    public void setKey(String key) {
+	this.key = key;
     }
 
     public XmlFileSettings getFileSettings() {

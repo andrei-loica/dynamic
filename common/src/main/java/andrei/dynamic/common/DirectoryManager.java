@@ -1,10 +1,13 @@
 package andrei.dynamic.common;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.LinkedList;
 
@@ -86,18 +89,22 @@ public class DirectoryManager {
 
 	return absolute.substring(getAbsolutePath().length(), absolute.length());
     }
-    
-    public String normalizeRelativePath(final String relative) throws Exception{
-	
-	if (relative.charAt(0) != '/' && relative.charAt(0) != '\\'){
-	    return (FileSystems.getDefault().getSeparator() + relative).replace("/", FileSystems.getDefault().getSeparator()).replace("\\", FileSystems.getDefault().getSeparator());
+
+    public String normalizeRelativePath(final String relative) throws Exception {
+
+	if (relative.charAt(0) != '/' && relative.charAt(0) != '\\') {
+	    return (FileSystems.getDefault().getSeparator() + relative).replace(
+		    "/", FileSystems.getDefault().getSeparator()).replace("\\",
+		    FileSystems.getDefault().getSeparator());
 	}
-	
-	return relative.replace("/", FileSystems.getDefault().getSeparator()).replace("\\", FileSystems.getDefault().getSeparator());
+
+	return relative.replace("/", FileSystems.getDefault().getSeparator()).
+		replace("\\", FileSystems.getDefault().getSeparator());
     }
-    
-    public boolean isDirectory(final String relative){
-	return Files.isDirectory(FileSystems.getDefault().getPath(getAbsolutePath(), relative));
+
+    public boolean isDirectory(final String relative) {
+	return Files.isDirectory(FileSystems.getDefault().getPath(
+		getAbsolutePath(), relative));
     }
 
     protected void refreshContentImage() throws Exception {
@@ -200,6 +207,21 @@ public class DirectoryManager {
 	}
 
 	return absolute;
+    }
+
+    @SuppressWarnings("empty-statement")
+    public byte[] getLocalFileMD5(final String fileName) throws Exception {
+	MessageDigest digest = MessageDigest.getInstance("MD5");
+
+	try (FileInputStream fileInput
+		= new FileInputStream(new File(fileName));
+		DigestInputStream stream = new DigestInputStream(fileInput,
+			digest)) {
+	    final byte[] dummyBuff = new byte[16384]; //1024 * 16
+	    while (stream.read(dummyBuff, 0, dummyBuff.length) != -1);
+	}
+
+	return digest.digest();
     }
 
     private void workerStopped() {

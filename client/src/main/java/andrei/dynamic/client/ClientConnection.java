@@ -2,6 +2,9 @@ package andrei.dynamic.client;
 
 import andrei.dynamic.common.Address;
 import andrei.dynamic.common.DirectoryManager;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.Arrays;
 
 /**
  *
@@ -11,17 +14,22 @@ public class ClientConnection { //TODO rename Manager / ClientManager
 
     private final Address controlAddress; //TODO de scos
     private final Address dataAddress;
+    private final byte[] key;
     private final DirectoryManager dir;
     private final ServerImage server;
     private State state;
 
     public ClientConnection(final Address controlAddress,
 	    final Address dataAddress, final DirectoryManager workingDirectory,
-	    final String authToken) {
+	    final String authToken, final String key) throws Exception{
 
 	this.controlAddress = controlAddress;
 	this.dataAddress = dataAddress;
 	dir = workingDirectory;
+	
+	final MessageDigest digest = MessageDigest.getInstance("SHA-256");
+	this.key = Arrays.copyOf(digest.digest(key.getBytes(StandardCharsets.UTF_8)), 16);
+	
 	server = new ServerImage(this, controlAddress, dataAddress, dir,
 		authToken);
 	state = State.INITIALIZED;
@@ -44,16 +52,16 @@ public class ClientConnection { //TODO rename Manager / ClientManager
 		    + " state");
 	}
 	state = State.CONNECTING;
+	System.out.println("opening new connection");
 
 	while (state == State.CONNECTING) {
 	    try {
-		System.out.println("opening new connection");
 		server.initConnection();
 	    } catch (Exception ex) {
 		if (!keepAlive) {
 		    throw new Exception("failed connecting to server");
 		}
-		System.out.println("connecting");
+		System.out.println("reconnecting...");
 		continue;
 	    }
 
@@ -67,6 +75,10 @@ public class ClientConnection { //TODO rename Manager / ClientManager
 	server.stop();
 
 	//graceful stop
+    }
+    
+    public byte[] getSecretKey(){
+	return key;
     }
 
     private static enum State {

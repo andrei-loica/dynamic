@@ -14,6 +14,7 @@ public class ServerConfiguration {
     private int localDataPort;
     private int localHttpPort;
     private int maxClientConnections;
+    private String key;
     private FileSettings fileSettings;
     
     public ServerConfiguration(){
@@ -25,6 +26,7 @@ public class ServerConfiguration {
 	localDataPort = original.getLocalDataPort();
 	localHttpPort = original.getLocalHttpPort();
 	maxClientConnections = original.getMaxClientConnections();
+	key = original.getKey();
 	fileSettings = new FileSettings(original.getFileSettings());
     }
 
@@ -60,6 +62,14 @@ public class ServerConfiguration {
 	this.maxClientConnections = maxClientConnections;
     }
 
+    public String getKey() {
+	return key;
+    }
+
+    public void setKey(String key) {
+	this.key = key;
+    }
+
     public FileSettings getFileSettings() {
 	return fileSettings;
     }
@@ -75,6 +85,7 @@ public class ServerConfiguration {
 	converted.setLocalDataPort(localDataPort);
 	converted.setLocalHttpPort(localHttpPort);
 	converted.setMaxClientConnections(maxClientConnections);
+	converted.setKey(key);
 	
 	final XmlFileSettings convertedSettings = new XmlFileSettings();
 	convertedSettings.setCheckPeriodMillis(fileSettings.getCheckPeriodMillis());

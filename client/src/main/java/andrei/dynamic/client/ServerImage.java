@@ -4,19 +4,23 @@ import andrei.dynamic.common.Address;
 import andrei.dynamic.common.DirectoryManager;
 import andrei.dynamic.common.MessageFactory;
 import java.io.BufferedInputStream;
-import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
-import java.net.UnknownHostException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
+import javax.crypto.CipherOutputStream;
+import javax.crypto.spec.SecretKeySpec;
 
 /**
  *
@@ -30,8 +34,8 @@ public class ServerImage {
     private final DirectoryManager dir;
     private final String authToken;
     private Socket socket;
-    private DataOutputStream out;
-    private DataInputStream in;
+    private CipherOutputStream out;
+    private CipherInputStream in;
     private State state;
     private boolean keepWorking;
 
@@ -47,7 +51,7 @@ public class ServerImage {
 	state = State.INIT;
     }
 
-    public void initConnection() throws UnknownHostException, IOException {
+    public void initConnection() throws Exception {
 
 	socket = new Socket(controlAddress.getHost(), controlAddress.getPort());
 
@@ -68,8 +72,8 @@ public class ServerImage {
 		System.err.println("could not enable socket reading timeout");
 	    }
 
-	    out = new DataOutputStream(socket.getOutputStream());
-	    in = new DataInputStream(socket.getInputStream());
+	    out = getCipherOutputStream(socket.getOutputStream());
+	    in = getCipherInputStream(socket.getInputStream());
 
 	    while (keepWorking) {
 
@@ -140,6 +144,7 @@ public class ServerImage {
 
     private void sendTestResponse() throws Exception {
 	out.write(MessageFactory.newTestResponseMessage(authToken));
+	out.flush();
     }
 
     public void stop() {
@@ -173,29 +178,33 @@ public class ServerImage {
 
     private MessageFromServer getMessage() throws Exception {
 
-	Byte type = null;
+	int type = -2;
 
-	while (type == null) {
+	while (type == -2) {
 	    if (!keepWorking) {
 		throw new TerminatedException("received shutdown signal");
 	    }
 
 	    try {
-		type = in.readByte();
+		type = in.read();
 	    } catch (SocketTimeoutException ex) {
 		//nimic
+		System.out.println("exceptie care nu trebe");
 	    }
 	}
+	
+	if (type == -1){
+	    throw new EOFException();
+	}
 
-	int counter = 0;
-	byte[] buff = new byte[130];
-	while (counter < 128) {
+	int counter = 1;
+	byte[] buff = new byte[MessageFactory.TEST_MSG_DIM];
+	while (counter < MessageFactory.TEST_MSG_DIM) {
 	    try {
-		counter += in.read(buff, counter, 128 - counter);
+		counter += in.read(buff, counter - 1, MessageFactory.TEST_MSG_DIM - counter);
 	    } catch (SocketTimeoutException ex) {
 		//nimic
 	    }
-
 	}
 
 	return new MessageFromServer(type, buff);
@@ -224,13 +233,12 @@ public class ServerImage {
 	    throw new SocketException("data socket not bound in server image");
 	}
 
-	DataOutputStream writer = new DataOutputStream(new FileOutputStream(
-		temp.toString()));
+	FileOutputStream writer = new FileOutputStream(temp.toString());
 
 	state = State.DOWNLOADING;
 
-	BufferedInputStream dataStream = new BufferedInputStream(dataSocket.
-		getInputStream());
+	CipherInputStream dataStream = getCipherInputStream(new BufferedInputStream(dataSocket.
+		getInputStream()));
 
 	final byte[] buff = new byte[1024 * 4];
 	try {
@@ -273,6 +281,26 @@ public class ServerImage {
 		relative.trim());
 
 	return Files.deleteIfExists(absolute);
+    }
+
+    private CipherOutputStream getCipherOutputStream(final OutputStream out)
+	    throws Exception {
+	final SecretKeySpec spec = new SecretKeySpec(parent.getSecretKey(),
+		"AES");
+	final Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
+	cipher.init(Cipher.ENCRYPT_MODE, spec);
+
+	return new CipherOutputStream(out, cipher);
+    }
+
+    private CipherInputStream getCipherInputStream(final InputStream in) throws
+	    Exception {
+	final SecretKeySpec spec = new SecretKeySpec(parent.getSecretKey(),
+		"AES");
+	final Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
+	cipher.init(Cipher.DECRYPT_MODE, spec);
+
+	return new CipherInputStream(in, cipher);
     }
 
     private String trim(final String input) {

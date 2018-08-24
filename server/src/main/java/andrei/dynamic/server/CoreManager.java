@@ -4,6 +4,8 @@ import andrei.dynamic.server.jaxb.XmlServerConfiguration;
 import andrei.dynamic.common.AbstractContentNode;
 import andrei.dynamic.common.DirectoryChangesListener;
 import andrei.dynamic.common.DirectoryManager;
+import andrei.dynamic.common.DirectoryPathHelper;
+import andrei.dynamic.common.FileInstance;
 import andrei.dynamic.server.http.HttpManager;
 import andrei.dynamic.server.jaxb.XmlFileGroup;
 import java.io.File;
@@ -22,7 +24,6 @@ import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import javax.xml.bind.DatatypeConverter;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.Marshaller;
 
@@ -37,15 +38,18 @@ public class CoreManager
     private final ServerConfiguration config;
     private final String configFilePath;
     private final byte[] key;
+    private final byte[] iv;
     private ConnectionListener connectionListener; //should never be null
     private ServerSocket dataServer;
     private HttpManager httpManager;
     private final HashMap<String, HashSet<String>> tokensForContent; //<relativeFileName, tokens>
     private final HashMap<String, HashSet<String>> contentForToken; //<token, relativeFileNames>
+    private final HashMap<String, HashSet<String>> runtimeTokensForFile;
+    private final HashMap<String, HashSet<String>> runtimeFilesForToken;
     private final HashSet<String> validTokens;
     private final HashSet<String> offlineTokens;
     private final HashSet<String> blockedTokens;
-    private final ArrayList<ClientWithServer> authenticatingClients;
+    private final ArrayList<ConnectionWrapper> authenticatingClients;
     private final HashMap<String, ClientWorker> connectedTokensWithWorkers;
     private final ArrayList<ClientWorker> clientWorkers;
 
@@ -63,10 +67,15 @@ public class CoreManager
 	authenticatingClients = new ArrayList<>();
 	connectedTokensWithWorkers = new HashMap<>();
 	clientWorkers = new ArrayList<>();
+	runtimeTokensForFile = new HashMap<>();
+	runtimeFilesForToken = new HashMap<>();
 
 	final MessageDigest digest = MessageDigest.getInstance("SHA-256");
-	key = Arrays.copyOf(digest.digest(initialConfig.getKey().getBytes(StandardCharsets.UTF_8)), 16);
-	
+	final byte[] bytes = digest.digest(initialConfig.getKey().getBytes(
+		StandardCharsets.UTF_8));
+	key = Arrays.copyOf(bytes, 16);
+	iv = Arrays.copyOfRange(bytes, 16, 32);
+
 	processFileSettings();
 
     }
@@ -79,6 +88,11 @@ public class CoreManager
 	connectionListener = new ConnectionListener(this, config.
 		getLocalControlPort());
 	dataServer = new ServerSocket(config.getLocalDataPort());
+	try {
+	    dataServer.setSoTimeout(2000);
+	} catch (Exception ex) {
+	    System.err.println("failed to set data transfer server timeout");
+	}
 	connectionListener.start();
 
 	dir.registerListener(this);
@@ -97,63 +111,76 @@ public class CoreManager
     }
 
     @Override
-    public void onFileDeleted(AbstractContentNode file) {
+    public void onFileLoaded(FileInstance file) {
 	try {
-	    final String localRelative = dir.relativeFilePath(file.getPath());
+	    final String localRelative = dir.paths.relativeFilePath(file.
+		    getPath());
 	    String bestMatch = "";
 	    for (String resource : tokensForContent.keySet()) {
 		if (resource.equals(localRelative)) {
 		    bestMatch = resource;
 		    break;
 		}
-		if (dir.isDirectory(resource) && localRelative.startsWith(
-			resource) && resource.length() > bestMatch.length()) {
+
+		if (((dir.isDirectory(resource) && localRelative.startsWith(
+			resource + '/')) || "/".equals(resource)) && resource.
+			length() > bestMatch.length()) {
 		    bestMatch = resource;
 		}
 	    }
 	    if (bestMatch.equals("")) {
 		return;
 	    }
+	    final HashSet<String> tokens = new HashSet();
+	    runtimeTokensForFile.put(file.getPath(), tokens);
 	    for (String token : tokensForContent.get(bestMatch)) {
-		final ClientWorker worker = connectedTokensWithWorkers.
-			get(token);
 
-		if (worker != null) {
-		    worker.addTask(new ClientTask(
-			    ClientTaskType.SEND_DELETE_FILE, file));
-		}
+		tokens.add(token);
+		HashSet<String> files = runtimeFilesForToken.get(token);
+		files.add(file.getPath());
+
 	    }
 	} catch (Exception ex) {
-	    System.out.println("failed to send delete file " + file.getPath());
+	    System.out.println("failed to load file " + file.getPath());
 	}
     }
 
     @Override
-    public void onFileCreated(AbstractContentNode file) {
+    public void onFileCreated(FileInstance file) {
 	try {
-	    final String localRelative = dir.relativeFilePath(file.getPath());
+	    final String localRelative = dir.paths.relativeFilePath(file.
+		    getPath());
 	    String bestMatch = "";
 	    for (String resource : tokensForContent.keySet()) {
 		if (resource.equals(localRelative)) {
 		    bestMatch = resource;
 		    break;
 		}
-		if (dir.isDirectory(resource) && localRelative.startsWith(
-			resource) && resource.length() > bestMatch.length()) {
+		if (((dir.isDirectory(resource) && localRelative.startsWith(
+			resource + '/')) || "/".equals(resource)) && resource.
+			length() > bestMatch.length()) {
 		    bestMatch = resource;
 		}
 	    }
 	    if (bestMatch.equals("")) {
 		return;
 	    }
+	    final HashSet<String> tokens = new HashSet();
+	    runtimeTokensForFile.put(file.getPath(), tokens);
 	    for (String token : tokensForContent.get(bestMatch)) {
 		final ClientWorker worker = connectedTokensWithWorkers.
 			get(token);
 
 		if (worker != null) {
 		    worker.addTask(new ClientTask(
-			    ClientTaskType.SEND_CREATE_FILE, file));
+			    ClientTaskType.SEND_UPDATE_FILE, file));
+		    worker.addTask(new ClientTask(
+			    ClientTaskType.SEND_CHECK_FILE, file.getPath()));
 		}
+		tokens.add(token);
+		HashSet<String> files = runtimeFilesForToken.get(token);
+		files.add(file.getPath());
+
 	    }
 	} catch (Exception ex) {
 	    System.out.println("failed to send create file " + file.getPath());
@@ -161,9 +188,36 @@ public class CoreManager
     }
 
     @Override
-    public void onFileModified(AbstractContentNode file) {
+    public void onFileModified(FileInstance file) {
 	try {
-	    final String localRelative = dir.relativeFilePath(file.getPath());
+	    HashSet<String> tokens = runtimeTokensForFile.get(file.getPath());
+	    if (tokens == null) {
+		System.out.println("file " + file.getPath()
+			+ "modified but no client listens");
+		return;
+	    }
+	    for (String token : tokens) {
+		final ClientWorker worker = connectedTokensWithWorkers.
+			get(token);
+
+		if (worker != null) {
+		    worker.addTask(new ClientTask(
+			    ClientTaskType.SEND_UPDATE_FILE, file));
+		    worker.addTask(new ClientTask(
+			    ClientTaskType.SEND_CHECK_FILE, file.getPath()));
+		}
+	    }
+	} catch (Exception ex) {
+	    System.out.println("failed to send modify file " + file.getPath()
+		    + ": " + ex.getMessage());
+	}
+    }
+
+    /*@Override
+    public void onFileModified(FileInstance file) {
+	try {
+	    final String localRelative = dir.paths.relativeFilePath(file.
+		    getPath());
 	    String bestMatch = "";
 	    for (String resource : tokensForContent.keySet()) {
 		if (resource.equals(localRelative)) {
@@ -190,11 +244,35 @@ public class CoreManager
 	} catch (Exception ex) {
 	    System.out.println("failed to send modify file " + file.getPath());
 	}
+    }*/
+    @Override
+    public void onFileDeleted(FileInstance file) {
+	try {
+	    HashSet<String> tokens = runtimeTokensForFile.remove(file.getPath());
+	    if (tokens == null) {
+		System.out.println("file " + file.getPath()
+			+ "deleted but no client listens");
+		return;
+	    }
+	    for (String token : tokens) {
+		final ClientWorker worker = connectedTokensWithWorkers.
+			get(token);
+
+		if (worker != null) {
+		    worker.addTask(new ClientTask(
+			    ClientTaskType.SEND_DELETE_FILE, file));
+		}
+		runtimeFilesForToken.get(token).remove(file.getPath());
+	    }
+	} catch (Exception ex) {
+	    System.out.println("failed to send delete file " + file.getPath()
+		    + ": " + ex.getMessage());
+	}
     }
 
     private synchronized void connectionListenerStopped() {
 	System.out.println("connection listener stopped");
-	dir.stop();
+	dir.deregisterListener();
 
 	if (clientWorkers.isEmpty()) {
 	    try {
@@ -205,7 +283,7 @@ public class CoreManager
 			getMessage());
 	    }
 	}
-	
+
 	for (ClientWorker worker : clientWorkers) {
 	    System.out.println("sent stop for worker " + worker.getClient().
 		    getStringAddress());
@@ -219,13 +297,11 @@ public class CoreManager
 
     private synchronized void clientWorkerStopped(final ClientWorker worker) {
 	System.out.println("client connection " + worker.getClient().
-		getStringAddress()
-		+ " closed");
+		getStringAddress() + " closed");
 
 	boolean wasConnected;
 	if (!(wasConnected = (connectedTokensWithWorkers.remove(worker.
-		getToken())
-		!= null))) {
+		getToken()) != null))) {
 	    System.out.println("clientul " + worker.getToken()
 		    + " nu era conectat");
 	}
@@ -251,12 +327,25 @@ public class CoreManager
 	}
     }
 
+    private synchronized void refusedClient(final ClientWorker worker) {
+	System.out.println("client connection " + worker.getClient().
+		getStringAddress() + " closed");
+
+	if (!clientWorkers.remove(worker)) {
+	    System.err.println("worker-ul nu era inregistrat");
+	}
+	if (authenticatingClients.remove(worker.getClient())) {
+	    System.err.println("clientul " + worker.getToken()
+		    + " nu a fost autentificat");
+	}
+    }
+
     private synchronized void incomingConnection(final Socket client) {
 
-	ClientWithServer clientWrapper;
+	ConnectionWrapper clientWrapper;
 	ClientWorker clientWorker;
 	try {
-	    clientWrapper = new ClientWithServer(client, config.
+	    clientWrapper = new ConnectionWrapper(client, config.
 		    getLocalDataPort(), this);
 	    clientWorker = new ClientWorker(clientWrapper, this);
 	} catch (Exception ex) {
@@ -323,9 +412,13 @@ public class CoreManager
 	worker.stopWorking();
 
     }
-    
-    public byte[] getSecretKey(){
+
+    public byte[] getSecretKey() {
 	return key;
+    }
+
+    public byte[] getSecretIv() {
+	return iv;
     }
 
     private void writeConfig() throws Exception {
@@ -346,24 +439,15 @@ public class CoreManager
 	    group.setOrder(++XmlFileGroup.index);
 	    if (group.getFiles() != null) {
 		for (String file : group.getFiles()) {
-		    HashSet<String> tokens = tokensForContent.get(dir.
-			    normalizeRelativePath(file));
+		    HashSet<String> tokens = tokensForContent.get(
+			    DirectoryPathHelper.normalizeRelativePath(file));
 		    if (tokens == null) {
 			tokens = new HashSet<>();
-			tokensForContent.put(dir.normalizeRelativePath(file),
-				tokens);
+			tokensForContent.put(DirectoryPathHelper.
+				normalizeRelativePath(file), tokens);
 		    }
 		    if (group.getClients() != null) {
-			for (String token : group.getClients()) {
-			    tokens.add(token);
-			    HashSet<String> files
-				    = contentForToken.get(token);
-			    if (files == null) {
-				files = new HashSet<>();
-				contentForToken.put(token, files);
-			    }
-			    files.add(file);
-			}
+			tokens.addAll(Arrays.asList(group.getClients()));
 		    }
 		}
 	    }
@@ -380,6 +464,8 @@ public class CoreManager
 	    if (!connectedTokensWithWorkers.containsKey(token)) {
 		offlineTokens.add(token);
 	    }
+	    contentForToken.put(token, new HashSet());
+	    runtimeFilesForToken.put(token, new HashSet());
 	}
 
 	for (Entry<String, HashSet<String>> current : tokensForContent.
@@ -389,29 +475,51 @@ public class CoreManager
 		if (current.getKey().equals(other.getKey())) {
 		    continue;
 		}
-		if (current.getKey().startsWith(other.getKey()) && dir.
-			isDirectory(other.getKey())) {
+
+		if ((current.getKey().startsWith(other.getKey() + '/') && dir.
+			isDirectory(other.getKey())) || "/".equals(other.
+			getKey())) {
 		    current.getValue().addAll(other.getValue());
 		}
 	    }
-	    
+
+	    for (String client : current.getValue()) {
+		contentForToken.get(client).add(current.getKey());
+	    }
 	    /*System.out.println(current.getKey());
 	    for (String token : current.getValue()) {
 		System.out.print(token + " ");
 	    }
 	    System.out.println();*/
 	}
+    }
 
+    private synchronized void processConfigurationAtRuntime() throws Exception {
+	runtimeFilesForToken.clear();
+	runtimeTokensForFile.clear();
+	dir.setCheckPeriod(config.getFileSettings().getCheckPeriodMillis());
+	dir.setMaxDepth(config.getFileSettings().getMaxDirectoryDepth());
+	dir.checkWorker();
+
+	processFileSettings();
+
+	dir.loadFiles();
 	for (Entry<String, ClientWorker> entry : connectedTokensWithWorkers.
 		entrySet()) {
 	    if (!validTokens.contains(entry.getKey())) {
 		entry.getValue().stopWorking();
+	    } else {
+		if (!entry.getValue().addTask(new ClientTask(
+			ClientTaskType.GLOBAL_CHECK, null))) {
+		    System.err.println("failed to issue global check for "
+			    + entry.getKey());
+		}
 	    }
 	}
     }
 
     //<editor-fold desc="RUNTIME EXTERNAL API">
-    public Set<ClientWithServer> getConnectedClients() {
+    public Set<ConnectionWrapper> getConnectedClients() {
 	return connectedTokensWithWorkers.values().stream().map(worker
 		-> worker.getClient()).collect(Collectors.toSet());
     }
@@ -461,12 +569,19 @@ public class CoreManager
     }
 
     public void saveConfig() throws Exception {
-	processFileSettings();
+	processConfigurationAtRuntime();
 	writeConfig();
     }
 
     public ServerConfiguration getConfig() {
 	return config;
+    }
+
+    public void pushClient(final String token) {
+	if (!connectedTokensWithWorkers.get(token).addTask(new ClientTask(
+		ClientTaskType.GLOBAL_CHECK, null))) {
+	    System.err.println("push failed for " + token);
+	}
     }
 
     //</editor-fold>
@@ -532,17 +647,18 @@ public class CoreManager
 	    extends Thread {
 
 	public final static int WAIT_TIME = 2000;
-	private ClientWithServer client;
+	private ConnectionWrapper client;
 	private CoreManager manager;
 	private LinkedBlockingQueue<ClientTask> tasks;
 	private String authToken;
 	private boolean working;
 
-	protected ClientWorker(final ClientWithServer client,
+	protected ClientWorker(final ConnectionWrapper client,
 		final CoreManager manager) {
 	    this.client = client;
 	    this.manager = manager;
 	    tasks = new LinkedBlockingQueue<>();
+	    tasks.add(new ClientTask(ClientTaskType.GLOBAL_CHECK, null));
 	    working = true;
 	}
 
@@ -563,21 +679,30 @@ public class CoreManager
 		tasks = null;
 	    }
 
-	    client.setAuthToken(authToken);
 	    if (!manager.validTokens.contains(authToken)) {
 		System.err.println("authentication failed for client " + client.
 			getStringAddress() + " with token " + authToken);
 		stopWorking();
 		tasks = null;
+		client.disconnect();
+		manager.refusedClient(this);
+		return;
 	    } else if (manager.blockedTokens.contains(authToken)) {
 		System.out.println("blocked client " + client.getStringAddress()
 			+ " with token " + authToken);
 		stopWorking();
 		tasks = null;
+		client.disconnect();
+		manager.refusedClient(this);
+		return;
 	    } else if (!manager.authenticatedClient(this, authToken)) {
 		stopWorking();
 		tasks = null;
+		client.disconnect();
+		manager.refusedClient(this);
+		return;
 	    }
+	    client.setAuthToken(authToken);
 
 	    while (working) {
 		try {
@@ -648,7 +773,7 @@ public class CoreManager
 	    return authToken;
 	}
 
-	public ClientWithServer getClient() {
+	public ConnectionWrapper getClient() {
 	    return client;
 	}
 
@@ -670,33 +795,89 @@ public class CoreManager
 
 	private void executeTask(final ClientTask task) throws Exception {
 	    switch (task.type) {
-		case SEND_CREATE_FILE: {
-		    AbstractContentNode file
-			    = (AbstractContentNode) task.object;
-		    client.sendCreateFileMessage(manager.dir.relativeFilePath(
-			    file.getPath()), file.getPath());
-		    break;
-		}
 
 		case SEND_DELETE_FILE: {
-		    AbstractContentNode file
-			    = (AbstractContentNode) task.object;
-		    client.sendDeleteFileMessage(manager.dir.relativeFilePath(
-			    file.getPath()), file.getPath());
+		    FileInstance file = (FileInstance) task.object;
+		    client.deleteRemoteFile(manager.dir.paths.relativeFilePath(
+			    file.getPath()));
 		    break;
 		}
 
-		case SEND_MODIFY_FILE: {
-		    AbstractContentNode file
-			    = (AbstractContentNode) task.object;
-		    client.sendModifyFileMessage(manager.dir.
-			    relativeFilePath(
-				    file.getPath()), file.getPath());
+		case SEND_UPDATE_FILE: {
+		    FileInstance file = (FileInstance) task.object;
+		    client.updateRemoteFile(manager.dir.paths.
+			    relativeFilePath(file.getPath()), file.getPath());
+		    break;
+		}
+
+		case SEND_CHECK_FILE: {
+		    final String file = (String) task.object;
+		    final byte[] md5 = manager.dir.getCheckSum(file);
+		    if (md5 == null) {
+			System.out.println("fisierul " + file
+				+ " nu are checksum");
+			break;
+		    }
+
+		    boolean mustUpdate;
+		    try {
+			mustUpdate = !client.checkRemoteFileMD5(
+				manager.dir.paths.relativeFilePath(file), md5);
+		    } catch (Exception ex) {
+			System.err.println("failed remote file check for "
+				+ file);
+			ex.printStackTrace(System.err);
+			break;
+		    }
+
+		    if (mustUpdate) {
+			client.updateRemoteFile(manager.dir.paths.
+				relativeFilePath(file), file);
+			addTask(new ClientTask(ClientTaskType.SEND_CHECK_FILE,
+				file));
+		    }
 		    break;
 		}
 
 		case GLOBAL_CHECK: {
+		    System.out.println("global check for client " + authToken);
+		    final HashSet<String> files = manager.runtimeFilesForToken.
+			    get(authToken);
+		    if (files == null || files.isEmpty()) {
+			System.out.println("n-am nimic pentru tine, frate");
+			return;
+		    }
+		    for (String file : files) {
+			//System.out.println("checking file " + file);
+			final byte[] md5 = manager.dir.getCheckSum(file);
+			if (md5 == null) {
+			    System.out.println("fisierul " + file
+				    + " nu are checksum");
+			    continue;
+			}
 
+			boolean mustUpdate;
+			try {
+			    mustUpdate = !client.checkRemoteFileMD5(
+				    manager.dir.paths.relativeFilePath(file),
+				    md5);
+			} catch (Exception ex) {
+			    System.err.println("failed remote file check for "
+				    + file);
+			    ex.printStackTrace(System.err);
+			    continue;
+			}
+
+			if (mustUpdate) {
+			    client.updateRemoteFile(manager.dir.paths.
+				    relativeFilePath(file), file);
+			    addTask(new ClientTask(
+				    ClientTaskType.SEND_CHECK_FILE, file));
+			}
+		    }
+		    System.out.println("finished global check for client "
+			    + authToken);
+		    break;
 		}
 	    }
 	}

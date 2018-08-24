@@ -1,4 +1,4 @@
-package andrei.dynamic.server;
+package andrei.dynamic.common;
 
 /**
  *

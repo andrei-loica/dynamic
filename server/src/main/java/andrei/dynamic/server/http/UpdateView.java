@@ -50,7 +50,7 @@ public class UpdateView
 			switch (pair[0]) {
 			    case "client":
 				if (pair[1].length()
-					> MessageFactory.TEST_MSG_DIM - 1) {
+					> MessageFactory.STD_MSG_DIM - 1) {
 				    respond404(req);
 				    return;
 				}
@@ -61,7 +61,7 @@ public class UpdateView
 
 			    case "file":
 				if (pair[1].length()
-					> MessageFactory.UPDATE_FILE_MSG_DIM - 1) {
+					> MessageFactory.STD_MSG_DIM - 1) {
 				    respond404(req);
 				    return;
 				}

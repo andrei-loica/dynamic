@@ -3,6 +3,7 @@ package andrei.dynamic.common;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 
 /**
  *
@@ -13,8 +14,9 @@ public class DirectoryInstance
 
     private final AbstractContentNode[] content;
 
-    public DirectoryInstance(final File file, int maxDepth) throws Exception { //le si sorteaza
-	super(file.getAbsolutePath(), file.lastModified());
+    public DirectoryInstance(final File file, int maxDepth,
+	    final DirectoryInstance parent) throws Exception { //le si sorteaza
+	super(file.getAbsolutePath(), file.lastModified(), parent);
 
 	if (!file.isDirectory()) {
 	    throw new Exception(getPath() + " is not a directory");
@@ -26,15 +28,15 @@ public class DirectoryInstance
 	}
 
 	File[] actualContent = file.listFiles();
-	
+
 	content = new AbstractContentNode[actualContent.length];
 
 	for (int i = 0; i < actualContent.length; i++) {
-	    if (actualContent[i].isDirectory()) {
+	    if (actualContent[i].isDirectory() && maxDepth > 1) {
 		content[i] = new DirectoryInstance(actualContent[i], maxDepth
-			- 1);
+			- 1, this);
 	    } else if (actualContent[i].isFile()) {
-		content[i] = new FileInstance(actualContent[i]);
+		content[i] = new FileInstance(actualContent[i], this);
 	    }
 	}
 	Arrays.sort(content);
@@ -49,14 +51,17 @@ public class DirectoryInstance
 	return content;
     }
 
-    public ArrayList<AbstractContentNode> getAllFiles(int maxDepth) {
-	final ArrayList<AbstractContentNode> files = new ArrayList<>();
+    public ArrayList<FileInstance> getAllFiles(int maxDepth) {
+	final ArrayList<FileInstance> files = new ArrayList<>();
 
 	for (int i = 0; i < content.length; i++) {
-	    if (content[i].isDirectory() && maxDepth > 0){
-		files.addAll(((DirectoryInstance) content[i]).getAllFiles(maxDepth - 1));
+	    if (content[i].isDirectory()) {
+		if (maxDepth > 1) {
+		    files.addAll(((DirectoryInstance) content[i]).getAllFiles(
+			    maxDepth - 1));
+		}
 	    } else {
-		files.add(content[i]);
+		files.add((FileInstance) content[i]);
 	    }
 	}
 

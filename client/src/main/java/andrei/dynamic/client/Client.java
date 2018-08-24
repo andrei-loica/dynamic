@@ -1,10 +1,9 @@
 package andrei.dynamic.client;
 
 import andrei.dynamic.common.Address;
-import andrei.dynamic.common.DirectoryManager;
+import andrei.dynamic.common.DirectoryPathHelper;
 import andrei.dynamic.common.MessageFactory;
-import java.io.BufferedInputStream;
-import java.io.DataOutputStream;
+import andrei.dynamic.common.MustResetConnectionException;
 import java.io.EOFException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -13,42 +12,71 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import java.security.MessageDigest;
+import java.util.Arrays;
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
 import javax.crypto.CipherOutputStream;
+import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
  *
  * @author Andrei
  */
-public class ServerImage {
+public class Client {
 
     private final Address controlAddress;
     private final Address dataAddress;
-    private final ClientConnection parent;
-    private final DirectoryManager dir;
     private final String authToken;
+    private final DirectoryPathHelper dir;
     private Socket socket;
     private CipherOutputStream out;
     private CipherInputStream in;
-    private State state;
+    private final byte[] key;
+    private final byte[] iv;
     private boolean keepWorking;
 
-    public ServerImage(final ClientConnection parent,
-	    final Address controlAddress, final Address dataAddress,
-	    final DirectoryManager dir, final String authToken) {
-	this.parent = parent;
+    public Client(final Address controlAddress,
+	    final Address dataAddress, final DirectoryPathHelper dir,
+	    final String authToken, final String key) throws Exception {
 	this.controlAddress = controlAddress;
 	this.dataAddress = dataAddress;
 	this.dir = dir;
 	this.authToken = authToken;
+
+	final MessageDigest digest = MessageDigest.getInstance("SHA-256");
+	final byte[] bytes = digest.digest(key.getBytes(StandardCharsets.UTF_8));
+	this.key = Arrays.copyOf(bytes, 16);
+	iv = Arrays.copyOfRange(bytes, 16, 32);
+
 	keepWorking = true;
-	state = State.INIT;
+    }
+
+    public void start(boolean keepAlive) throws Exception {
+
+	System.out.println("opening new connection");
+
+	while (keepWorking) {
+	    try {
+		initConnection();
+	    } catch (MustResetConnectionException ex) {
+		System.out.println("connection reset...");
+	    } catch (Exception ex) {
+		if (!keepAlive) {
+		    throw new Exception("failed connecting to server");
+		}
+		System.out.println("reconnecting...");
+	    }
+
+	    Thread.sleep(3000);
+	}
+
     }
 
     public void initConnection() throws Exception {
@@ -75,30 +103,37 @@ public class ServerImage {
 	    out = getCipherOutputStream(socket.getOutputStream());
 	    in = getCipherInputStream(socket.getInputStream());
 
+	    System.out.println("\nconnected with token " + authToken);
+
 	    while (keepWorking) {
 
-		state = State.WAITING_UPDATE;
 		MessageFromServer message = null;
 
 		try {
 
 		    message = getMessage();
-		    state = State.UPDATING;
 
 		    switch (message.getType()) {
-			case CREATE_FILE_MESSAGE:
-		    System.out.println("created " + new String(message.getContent()));
-			    state = State.STARTING_DOWNLOAD;
-			    downloadFile(trim(new String(message.getContent())));
+			case CHECK_FILE_MESSAGE:
+			    sendCheckFileMessageResponse(new String(
+				    MessageFactory.trimPadding(message.
+					    getContent())));
 			    break;
-			case MODIFY_FILE_MESSAGE:
-		    System.out.println("modified " + new String(message.getContent()));
-			    state = State.STARTING_DOWNLOAD;
-			    downloadFile(trim(new String(message.getContent())));
+			case UPDATE_FILE_MESSAGE:
+			    System.out.println("updating " + new String(message.
+				    getContent()).trim());
+			    downloadFile(new String(MessageFactory.trimPadding(
+				    message.getContent())));
+			    System.out.println("updated " + new String(message.
+				    getContent()).trim());
 			    break;
 			case DELETE_FILE_MESSAGE:
-		    System.out.println("deleted " + new String(message.getContent()));
-			    deleteFile(trim(new String(message.getContent())));
+			    System.out.println("deleting " + new String(message.
+				    getContent()).trim());
+			    deleteFile(new String(MessageFactory.trimPadding(
+				    message.getContent())));
+			    System.out.println("deleted " + new String(message.
+				    getContent()).trim());
 			    break;
 			case TEST_MESSAGE:
 			    sendTestResponse();
@@ -106,12 +141,9 @@ public class ServerImage {
 		    }
 
 		} catch (EOFException ex) {
-		    stop();
+		    //stop();
 		    System.out.println("reached EOF");
-		} catch (SocketException ex) {
-		    stop();
-		    System.err.println("socket exception: " + ex.getMessage());
-		    ex.printStackTrace(System.err);
+		    throw new MustResetConnectionException();
 		} catch (Exception ex) {
 		    if (message != null) {
 			System.err.println("failed processing " + message.
@@ -121,6 +153,7 @@ public class ServerImage {
 				getMessage());
 		    }
 		    ex.printStackTrace(System.err);
+		    throw ex;
 		}
 
 	    }
@@ -143,7 +176,16 @@ public class ServerImage {
     }
 
     private void sendTestResponse() throws Exception {
-	out.write(MessageFactory.newTestResponseMessage(authToken));
+	out.write(MessageFactory.newTestMessageResponse(authToken));
+	out.flush();
+    }
+
+    private void sendCheckFileMessageResponse(final String relative) throws
+	    Exception {
+
+	byte[] msg = MessageFactory.newCheckFileMessageResponse(relative,
+		dir.getLocalFileMD5(dir.getAbsolutePath(relative)));
+	out.write(msg);
 	out.flush();
     }
 
@@ -192,16 +234,18 @@ public class ServerImage {
 		System.out.println("exceptie care nu trebe");
 	    }
 	}
-	
-	if (type == -1){
+
+	if (type == -1) {
 	    throw new EOFException();
 	}
 
 	int counter = 1;
-	byte[] buff = new byte[MessageFactory.TEST_MSG_DIM];
-	while (counter < MessageFactory.TEST_MSG_DIM) {
+	int dim = MessageFactory.dimForType(type);
+
+	byte[] buff = new byte[dim];
+	while (counter < dim) {
 	    try {
-		counter += in.read(buff, counter - 1, MessageFactory.TEST_MSG_DIM - counter);
+		counter += in.read(buff, counter - 1, dim - counter);
 	    } catch (SocketTimeoutException ex) {
 		//nimic
 	    }
@@ -213,8 +257,7 @@ public class ServerImage {
 
     private void downloadFile(final String relative) throws Exception {
 
-	Path original = FileSystems.getDefault().getPath(dir.getAbsolutePath(),
-		relative);
+	Path original = FileSystems.getDefault().getPath(dir.root(), relative);
 	Path temp = dir.getTempFilePath(relative);
 	Socket dataSocket = null;
 
@@ -235,33 +278,36 @@ public class ServerImage {
 
 	FileOutputStream writer = new FileOutputStream(temp.toString());
 
-	state = State.DOWNLOADING;
-
-	CipherInputStream dataStream = getCipherInputStream(new BufferedInputStream(dataSocket.
-		getInputStream()));
+	CipherInputStream dataStream = getCipherInputStream(dataSocket.
+		getInputStream());
 
 	final byte[] buff = new byte[1024 * 4];
 	try {
 	    while (true) {
 		try {
-		    int read = dataStream.read(buff);
+		    int read = dataStream.read(buff, 0, 4095);
+		    int dummy;
+		    /*System.out.println(read + " " + DatatypeConverter.
+			    printHexBinary(buff));*/
 		    if (read == -1) {
 			break;
 		    }
+		    if ((dummy = dataStream.read()) == -1) {
+			int padding = waitForPaddingMessage();
+			if (padding < read) {
+			    writer.write(buff, 0, read - padding);
+			}
+			break;
+		    }
+		    buff[read++] = (byte) dummy;
 		    writer.write(buff, 0, read);
 		} catch (EOFException ex) {
 		    break;
 		}
 	    }
 
+	    writer.flush();
 	    writer.close();
-	    if (!Files.exists(original.getParent())) {
-		Files.createDirectories(original.getParent());
-	    }
-	    Files.deleteIfExists(original);
-	    //(new File(temp.toString())).renameTo(new File(original.toString()));
-	    Files.move(temp, original, REPLACE_EXISTING);
-	} finally {
 	    try {
 		dataStream.close();
 	    } catch (Exception ex1) {
@@ -273,43 +319,54 @@ public class ServerImage {
 	    } catch (Exception ex1) {
 		//nimic
 	    }
+
+	    if (!Files.exists(original.getParent())) {
+		Files.createDirectories(original.getParent());
+	    }
+	    Files.deleteIfExists(original);
+	    //(new File(temp.toString())).renameTo(new File(original.toString()));
+	    Files.move(temp, original, REPLACE_EXISTING);
+	} finally {
+
 	}
     }
 
+    private int waitForPaddingMessage() throws Exception {
+	final MessageFromServer message = getMessage();
+
+	byte[] oneByte = MessageFactory.trimPadding(message.getContent());
+	if (oneByte == null || oneByte.length == 0) {
+	    return 0;
+	}
+
+	return oneByte[0];
+    }
+
     private boolean deleteFile(final String relative) throws Exception {
-	Path absolute = FileSystems.getDefault().getPath(dir.getAbsolutePath(),
-		relative.trim());
+	Path absolute = FileSystems.getDefault().getPath(dir.root(), relative.
+		trim());
 
 	return Files.deleteIfExists(absolute);
     }
 
     private CipherOutputStream getCipherOutputStream(final OutputStream out)
 	    throws Exception {
-	final SecretKeySpec spec = new SecretKeySpec(parent.getSecretKey(),
-		"AES");
-	final Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
-	cipher.init(Cipher.ENCRYPT_MODE, spec);
+	final SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
+	final IvParameterSpec ivSpec = new IvParameterSpec(iv);
+	final Cipher cipher = Cipher.getInstance("AES/CBC/NoPadding");
+	cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec);
 
 	return new CipherOutputStream(out, cipher);
     }
 
     private CipherInputStream getCipherInputStream(final InputStream in) throws
 	    Exception {
-	final SecretKeySpec spec = new SecretKeySpec(parent.getSecretKey(),
-		"AES");
-	final Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
-	cipher.init(Cipher.DECRYPT_MODE, spec);
+	final SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
+	final IvParameterSpec ivSpec = new IvParameterSpec(iv);
+	final Cipher cipher = Cipher.getInstance("AES/CBC/NoPadding");
+	cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
 
 	return new CipherInputStream(in, cipher);
-    }
-
-    private String trim(final String input) {
-	final String temp = input.trim();
-	if (temp.charAt(0) == '/' || temp.charAt(0) == '\\') {
-	    return temp.substring(1).trim();
-	}
-
-	return temp;
     }
 
     private static enum State {

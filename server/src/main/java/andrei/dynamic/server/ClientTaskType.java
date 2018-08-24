@@ -6,9 +6,9 @@ package andrei.dynamic.server;
  */
 public enum ClientTaskType {
     
-    SEND_CREATE_FILE,
     SEND_DELETE_FILE,
-    SEND_MODIFY_FILE,
+    SEND_UPDATE_FILE,
+    SEND_CHECK_FILE,
     GLOBAL_CHECK,
     
 }

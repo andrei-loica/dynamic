@@ -4,6 +4,7 @@ import andrei.dynamic.common.Address;
 import andrei.dynamic.common.ShutdownTask;
 import andrei.dynamic.common.ShutdownListener;
 import andrei.dynamic.common.DirectoryManager;
+import andrei.dynamic.common.DirectoryPathHelper;
 import java.io.File;
 import java.util.logging.Level;
 import javax.xml.bind.JAXBContext;
@@ -20,10 +21,10 @@ public class Main
     private final ClientConfiguration initialConfig;
     private final Address controlAddress;
     private final Address dataAddress;
-    private final DirectoryManager dir;
+    private final DirectoryPathHelper dir;
     private final boolean keepAlive;
     private Level logLevel;
-    private ClientConnection client;
+    private Client client;
     private Thread shutdownHook;
 
     public Main(final String configFilePath) throws Exception {
@@ -35,7 +36,7 @@ public class Main
 
 	validateConfig();
 
-	dir = new DirectoryManager(initialConfig.getDirectoryPath(), 0, 0);
+	dir = new DirectoryPathHelper(initialConfig.getDirectoryPath());
 	controlAddress = new Address(initialConfig.getRemoteControlAddress(),
 		initialConfig.getRemoteControlPort());
 	dataAddress = new Address(initialConfig.getRemoteDataAddress(),
@@ -74,7 +75,7 @@ public class Main
 	} catch (Exception ex) {
 	    //TODO
 	    System.err.println("Initialization exception: " + ex.getMessage());
-	    //ex.printStackTrace(System.err);
+	    ex.printStackTrace(System.err);
 	    return;
 	}
 
@@ -91,7 +92,7 @@ public class Main
 	shutdownHook = new Thread(new ShutdownTask(this, mainThread));
 	Runtime.getRuntime().addShutdownHook(shutdownHook);
 
-	client = new ClientConnection(controlAddress, dataAddress, dir,
+	client = new Client(controlAddress, dataAddress, dir,
 		initialConfig.getClientAuthToken(), initialConfig.getKey());
 
 	try {

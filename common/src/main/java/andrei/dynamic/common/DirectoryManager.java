@@ -1,39 +1,35 @@
 package andrei.dynamic.common;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.security.DigestInputStream;
-import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 
 /**
  *
  * @author Andrei
  */
-public class DirectoryManager {
+public final class DirectoryManager {
 
-    private static final String TEMP_DIR = "temp";
-    private final String path;
     private int checkPeriod;
     private int maxDepth;
     private final File root;
     private DirectoryChangesListener listener;
     private DirectoryInstance lastImage;
+    private final HashMap<String, byte[]> checkSums;
     private Worker worker;
-    private boolean working;
+    private State state;
+
+    public final DirectoryPathHelper paths;
 
     public DirectoryManager(final String dirPath, int checkPeriod, int maxDepth)
 	    throws Exception {
 
-	path = dirPath;
 	this.checkPeriod = checkPeriod;
 	this.maxDepth = maxDepth;
-	working = false;
+	state = State.NOT_INITIALIZED;
 
 	try {
 	    root = new File(dirPath);
@@ -45,61 +41,82 @@ public class DirectoryManager {
 		    "given directory path does not point to a directory");
 	}
 
+	paths = new DirectoryPathHelper(root.getAbsolutePath());
 	listener = null;
-	lastImage = new DirectoryInstance(root, maxDepth);
+	checkSums = new HashMap<>();
+	lastImage = new DirectoryInstance(root, maxDepth, null);
+
+	state = State.INITIALIZED_NOT_REGISTERED;
     }
 
-    public void registerListener(final DirectoryChangesListener listener) {
+    public synchronized void registerListener(
+	    final DirectoryChangesListener listener) throws
+	    IllegalStateException {
 
-	this.listener = listener;
-
-	if (!working) {
-	    worker = new Worker(checkPeriod, this);
-	    worker.start();
-	    working = true;
+	if (state != State.INITIALIZED_NOT_REGISTERED) {
+	    throw new IllegalStateException("illegal register in state " + state);
 	}
 
+	this.listener = listener;
+	state = State.REGISTERED_NOT_WORKING;
+	loadFiles();
+	checkWorker();
+
     }
 
-    public String getPath() {
-	return path;
-    }
-
-    public int getCheckPeriod() {
+    public synchronized int getCheckPeriod() {
 	return checkPeriod;
     }
 
-    public void setCheckPeriod(int checkPeriod) {
+    public synchronized void setCheckPeriod(int checkPeriod) {
 	this.checkPeriod = checkPeriod;
-	worker.setCheckPeriod(checkPeriod);
     }
 
-    public boolean isWorking() {
-	return working;
+    public int getMaxDepth() {
+	return maxDepth;
+    }
+
+    public void setMaxDepth(int maxDepth) {
+	this.maxDepth = maxDepth;
+    }
+
+    public synchronized boolean isWorking() {
+	return state == State.REGISTERED_WORKING;
     }
 
     public String getAbsolutePath() {
-	return root.getAbsolutePath();
+	return paths.root();
     }
 
-    public String relativeFilePath(final String absolute) throws Exception {
-	if (!absolute.startsWith(getAbsolutePath())) {
-	    throw new PathMatchException();
+    public synchronized void checkWorker() {
+
+	if (state == State.INITIALIZED_NOT_REGISTERED || state
+		== State.NOT_INITIALIZED || state
+		== State.DEREGISTERED_WAITING_WORKER_STOP) {
+	    return;
 	}
 
-	return absolute.substring(getAbsolutePath().length(), absolute.length());
-    }
-
-    public String normalizeRelativePath(final String relative) throws Exception {
-
-	if (relative.charAt(0) != '/' && relative.charAt(0) != '\\') {
-	    return (FileSystems.getDefault().getSeparator() + relative).replace(
-		    "/", FileSystems.getDefault().getSeparator()).replace("\\",
-		    FileSystems.getDefault().getSeparator());
+	if (state == State.REGISTERED_NOT_WORKING && checkPeriod > 0) {
+	    worker = new Worker(checkPeriod, this);
+	    worker.start();
+	    state = State.REGISTERED_WORKING;
 	}
 
-	return relative.replace("/", FileSystems.getDefault().getSeparator()).
-		replace("\\", FileSystems.getDefault().getSeparator());
+	if (state == State.REGISTERED_WORKING) {
+	    if (checkPeriod < 1) {
+		state = State.REGISTERED_NOT_WORKING;
+		worker.stopWorking();
+		worker = null;
+	    } else {
+		if (worker != null) {
+		    worker.setCheckPeriod(checkPeriod);
+		} else {
+		    System.err.println(
+			    "a disparut worker-ul pentru directory manager!!!");
+		}
+	    }
+	}
+
     }
 
     public boolean isDirectory(final String relative) {
@@ -107,30 +124,31 @@ public class DirectoryManager {
 		getAbsolutePath(), relative));
     }
 
-    protected void refreshContentImage() throws Exception {
+    protected synchronized void refreshContentImage() throws Exception {
 	final DirectoryInstance newImage
-		= new DirectoryInstance(root, maxDepth); //le si sorteaza
+		= new DirectoryInstance(root, maxDepth, null); //le si sorteaza
 
-	final LinkedList<AbstractContentNode> deleted = new LinkedList<>();
-	final LinkedList<AbstractContentNode> created = new LinkedList<>();
-	final LinkedList<AbstractContentNode> modified = new LinkedList<>();
+	final LinkedList<FileInstance> deleted = new LinkedList<>();
+	final LinkedList<FileInstance> created = new LinkedList<>();
+	final LinkedList<FileInstance> modified = new LinkedList<>();
 
-	final ArrayList<AbstractContentNode> lastContent = lastImage.
+	final ArrayList<FileInstance> lastContent = lastImage.
 		getAllFiles(maxDepth);
-	final ArrayList<AbstractContentNode> newContent = newImage.getAllFiles(
+	final ArrayList<FileInstance> newContent = newImage.getAllFiles(
 		maxDepth);
 
 	int index = 0;
 
-	for (AbstractContentNode oldFile : lastContent) {
+	for (FileInstance oldFile : lastContent) {
 	    if (oldFile == null) {
 		continue;
 	    }
 	    if (index >= newContent.size()) {
 		deleted.add(oldFile);
+		checkSums.remove(paths.relativeFilePath(oldFile.getPath()));
 		continue;
 	    }
-	    AbstractContentNode newFile = newContent.get(index);
+	    FileInstance newFile = newContent.get(index);
 	    if (newFile == null) {
 		index++;
 		continue;
@@ -140,27 +158,37 @@ public class DirectoryManager {
 	    if (compResult == 0) {
 		if (oldFile.getLastModifiedDate() != newFile.
 			getLastModifiedDate()) {
+		    checkSums.put(newFile.getPath(), getLocalFileMD5(newFile.
+			    getPath()));
 		    modified.add(newFile);
 		}
 		index++;
 	    } else if (compResult < 0) {
+		checkSums.remove(paths.relativeFilePath(oldFile.getPath()));
 		deleted.add(oldFile);
 	    } else {
 		while (compResult > 0) {
+		    checkSums.put(newFile.getPath(), getLocalFileMD5(newFile.
+			    getPath()));
 		    created.add(newFile);
-		    if (index < newContent.size() - 1) {
-			newFile = newContent.get(++index);
+		    if (++index < newContent.size()) {
+			newFile = newContent.get(index);
 			compResult = oldFile.getPath().compareTo(newFile.
 				getPath());
 		    } else {
 			break;
 		    }
 		}
-		if (compResult != 0) {
+		if (index >= newContent.size()) {
+		    // nimic
+		} else if (compResult != 0) {
 		    deleted.add(oldFile);
+		    checkSums.remove(paths.relativeFilePath(oldFile.getPath()));
 		} else {
 		    if (oldFile.getLastModifiedDate() != newFile.
 			    getLastModifiedDate()) {
+			checkSums.put(newFile.getPath(), getLocalFileMD5(
+				newFile.getPath()));
 			modified.add(newFile);
 		    }
 		    index++;
@@ -168,82 +196,92 @@ public class DirectoryManager {
 	    }
 	}
 
-	if (index < newContent.size()) {
-	    created.addAll(newContent.subList(index, newContent.size()));
+	while (index < newContent.size()) {
+	    final FileInstance file = newContent.get(index++);
+	    checkSums.put(file.getPath(), getLocalFileMD5(file.getPath()));
+	    created.add(file);
 	}
 
-	for (AbstractContentNode file : deleted) {
+	for (FileInstance file : deleted) {
 	    notifyDeleted(file);
 	}
 
-	for (AbstractContentNode file : created) {
+	for (FileInstance file : created) {
 	    notifyCreated(file);
 	}
 
-	for (AbstractContentNode file : modified) {
+	for (FileInstance file : modified) {
 	    notifyModified(file);
 	}
 
 	lastImage = newImage;
     }
 
-    public void stop() {
+    public void deregisterListener() {
 
-	working = false;
+	state = State.DEREGISTERED_WAITING_WORKER_STOP;
 	if (worker != null) {
 	    worker.stopWorking();
 	}
 
     }
 
-    public Path getTempFilePath(final String relativePath) throws Exception {
-	Path absolute = FileSystems.getDefault().getPath(root.getAbsolutePath(),
-		TEMP_DIR, relativePath.trim());
-	Files.createDirectories(absolute.getParent());
-	try {
-	    (new File(absolute.toString())).createNewFile();
-	} catch (FileAlreadyExistsException ex) {
-	    //nimic
-	}
-
-	return absolute;
+    public synchronized byte[] getCheckSum(final String absolute) {
+	return checkSums.get(absolute);
     }
 
     @SuppressWarnings("empty-statement")
-    public byte[] getLocalFileMD5(final String fileName) throws Exception {
-	MessageDigest digest = MessageDigest.getInstance("MD5");
+    public byte[] getLocalFileMD5(final String absolute) throws Exception {
 
-	try (FileInputStream fileInput
-		= new FileInputStream(new File(fileName));
-		DigestInputStream stream = new DigestInputStream(fileInput,
-			digest)) {
-	    final byte[] dummyBuff = new byte[16384]; //1024 * 16
-	    while (stream.read(dummyBuff, 0, dummyBuff.length) != -1);
-	}
-
-	return digest.digest();
+	return paths.getLocalFileMD5(absolute);
     }
 
-    private void workerStopped() {
-	if (working) {
-	    worker = new Worker(checkPeriod, this);
-	    worker.start();
-	} else {
-	    listener = null;
+    public synchronized void loadFiles() {
+
+	if (state != State.REGISTERED_NOT_WORKING && state
+		!= State.REGISTERED_WORKING) {
+	    throw new IllegalStateException("illegal loadFiles in state "
+		    + state);
+	}
+	ArrayList<FileInstance> files = lastImage.getAllFiles(maxDepth);
+	System.out.println("am incarcat " + files.size() + " fisiere");
+
+	for (FileInstance file : files) {
+	    try {
+		checkSums.put(file.getPath(), getLocalFileMD5(file.getPath()));
+		notifyLoaded(file);
+	    } catch (Exception ex) {
+		System.err.println("failed to load file " + file);
+	    }
+	}
+
+    }
+
+    private synchronized void workerStopped() {
+	worker = null;
+	switch (state){
+	    case DEREGISTERED_WAITING_WORKER_STOP:
+		listener = null;
+		state = State.INITIALIZED_NOT_REGISTERED;
+		break;
+		
+	    case REGISTERED_WORKING:
+		state = State.REGISTERED_NOT_WORKING;
+		break;
 	}
     }
 
-    private void notifyDeleted(final AbstractContentNode file) {
+    private void notifyLoaded(final FileInstance file) {
 	//for (DirectoryChangesListener listener : listeners) {
 	try {
-	    listener.onFileDeleted(file);
+	    listener.onFileLoaded(file);
 	} catch (Exception ex) {
 	    //asta n-ar trebui sa se intample never ever
 	}
 	//}
     }
 
-    private void notifyCreated(final AbstractContentNode file) {
+    private void notifyCreated(final FileInstance file) {
 	//for (DirectoryChangesListener listener : listeners) {
 	try {
 	    listener.onFileCreated(file);
@@ -253,10 +291,20 @@ public class DirectoryManager {
 	//}
     }
 
-    private void notifyModified(final AbstractContentNode file) {
+    private void notifyModified(final FileInstance file) {
 	//for (DirectoryChangesListener listener : listeners) {
 	try {
 	    listener.onFileModified(file);
+	} catch (Exception ex) {
+	    //asta n-ar trebui sa se intample never ever
+	}
+	//}
+    }
+
+    private void notifyDeleted(final FileInstance file) {
+	//for (DirectoryChangesListener listener : listeners) {
+	try {
+	    listener.onFileDeleted(file);
 	} catch (Exception ex) {
 	    //asta n-ar trebui sa se intample never ever
 	}
@@ -312,6 +360,18 @@ public class DirectoryManager {
 	    keepWorking = false;
 	}
 
+	public boolean isWorking() {
+	    return keepWorking;
+	}
+
+    }
+
+    public static enum State {
+	NOT_INITIALIZED,
+	INITIALIZED_NOT_REGISTERED,
+	REGISTERED_NOT_WORKING,
+	REGISTERED_WORKING,
+	DEREGISTERED_WAITING_WORKER_STOP,
     }
 
 }

@@ -6,10 +6,12 @@ package andrei.dynamic.common;
  */
 public interface DirectoryChangesListener {
     
-    public void onFileDeleted(final AbstractContentNode file);
+    public void onFileLoaded(final FileInstance file);
     
-    public void onFileCreated(final AbstractContentNode file);
+    public void onFileCreated(final FileInstance file);
     
-    public void onFileModified(final AbstractContentNode file);
+    public void onFileModified(final FileInstance file);
+    
+    public void onFileDeleted(final FileInstance file);
     
 }

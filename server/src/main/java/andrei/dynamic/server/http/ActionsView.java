@@ -35,7 +35,7 @@ public class ActionsView
 		final String[] pair = parsePair(req.getRequestURI().getQuery());
 
 		if (pair == null || !"client".equals(pair[0]) || pair[1].
-			length() > MessageFactory.TEST_MSG_DIM - 1) {
+			length() > MessageFactory.STD_MSG_DIM - 1) {
 		    respond404(req);
 		    return;
 		}
@@ -56,7 +56,7 @@ public class ActionsView
 		final String[] pair = parsePair(req.getRequestURI().getQuery());
 
 		if (pair == null || !"client".equals(pair[0]) || pair[1].
-			length() > MessageFactory.TEST_MSG_DIM - 1) {
+			length() > MessageFactory.STD_MSG_DIM - 1) {
 		    respond404(req);
 		    return;
 		}
@@ -77,7 +77,7 @@ public class ActionsView
 		final String[] pair = parsePair(req.getRequestURI().getQuery());
 
 		if (pair == null || !"client".equals(pair[0]) || pair[1].
-			length() > MessageFactory.TEST_MSG_DIM - 1) {
+			length() > MessageFactory.STD_MSG_DIM - 1) {
 		    respond404(req);
 		    return;
 		}
@@ -86,6 +86,27 @@ public class ActionsView
 		    core.unblockClient(pair[1]);
 		} catch (Exception ex) {
 		    System.err.println("failed unblocking client " + pair[1]);
+		    //TODO eroare
+		}
+		
+		redirectTo("/connections", req);
+		break;
+	    }
+	    
+	    case "/push":
+	    case "/push/":{
+		final String[] pair = parsePair(req.getRequestURI().getQuery());
+
+		if (pair == null || !"client".equals(pair[0]) || pair[1].
+			length() > MessageFactory.STD_MSG_DIM - 1) {
+		    respond404(req);
+		    return;
+		}
+
+		try {
+		    core.pushClient(pair[1]);
+		} catch (Exception ex) {
+		    System.err.println("failed pushing to client " + pair[1]);
 		    //TODO eroare
 		}
 		

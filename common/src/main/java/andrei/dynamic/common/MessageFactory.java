@@ -8,11 +8,47 @@ import java.util.Arrays;
  */
 public class MessageFactory {
 
-    public static final int UPDATE_FILE_MSG_DIM = 256;
-    public static final int TEST_MSG_DIM = 256;
+    public static final int STD_MSG_DIM = 256;
+    public static final int TRANSFER_PADDING_MDG_DIM = 32;
+    public static final int CHECK_FILE_MSG_RSP_DIM = 512;
 
     private MessageFactory() {
 
+    }
+    
+    public static int dimForType(int type){
+	switch (type){
+	    case 104:
+	    case 102:
+	    case 100:
+	    case 110:
+	    case 103:
+		return STD_MSG_DIM;
+	    case 114:
+		return CHECK_FILE_MSG_RSP_DIM;
+	    case 120:
+		return TRANSFER_PADDING_MDG_DIM;
+	    default:
+		return STD_MSG_DIM;
+		
+	}
+    }
+    
+    public static int dimForType(MessageType type){
+	switch (type){
+	    case CHECK_FILE_MESSAGE:
+	    case DELETE_FILE_MESSAGE:
+	    case TEST_MESSAGE:
+	    case TEST_MESSAGE_RSP:
+	    case UPDATE_FILE_MESSAGE:
+		return STD_MSG_DIM;
+	    case CHECK_FILE_MESSAGE_RSP:
+		return CHECK_FILE_MSG_RSP_DIM;
+	    case TRANSFER_PADDING:
+		return TRANSFER_PADDING_MDG_DIM;
+	    default:
+		return STD_MSG_DIM; //NOK
+	}
     }
 
     public static byte[] newDeletedFileMessage(final String relativeName) throws
@@ -26,38 +62,17 @@ public class MessageFactory {
 	    return null;
 	}
 
-	if (content.length >= UPDATE_FILE_MSG_DIM) {
+	if (content.length >= STD_MSG_DIM) {
 	    throw new Exception("too big file relative name " + relativeName
 		    + " for deleted file message");
 	}
 
 	return resolvePadding(concatenate(
 		(byte) MessageType.DELETE_FILE_MESSAGE.
-			getCode(), content), UPDATE_FILE_MSG_DIM);
+			getCode(), content), STD_MSG_DIM);
     }
 
-    public static byte[] newCreatedFileMessage(final String relativeName) throws
-	    Exception {
-	byte[] content;
-	try {
-	    content = relativeName.getBytes("US-ASCII"); //TODO: verifica inainte daca e ASCII
-	} catch (Exception ex) {
-	    //TODO: e naspa
-	    System.err.println("failed to get name as ASCII");
-	    return null;
-	}
-
-	if (content.length >= UPDATE_FILE_MSG_DIM) {
-	    throw new Exception("too big file relative name " + relativeName
-		    + " for created file message");
-	}
-
-	return resolvePadding(concatenate(
-		(byte) MessageType.CREATE_FILE_MESSAGE.
-			getCode(), content), UPDATE_FILE_MSG_DIM);
-    }
-
-    public static byte[] newModifiedFileMessage(final String relativeName)
+    public static byte[] newUpdatedFileMessage(final String relativeName)
 	    throws Exception {
 	byte[] content;
 	try {
@@ -68,24 +83,79 @@ public class MessageFactory {
 	    return null;
 	}
 
-	if (content.length >= UPDATE_FILE_MSG_DIM) {
+	if (content.length >= STD_MSG_DIM) {
 	    throw new Exception("too big file relative name " + relativeName
 		    + " for modify file message");
 	}
 
 	return resolvePadding(concatenate(
-		(byte) MessageType.MODIFY_FILE_MESSAGE.
-			getCode(), content), UPDATE_FILE_MSG_DIM);
+		(byte) MessageType.UPDATE_FILE_MESSAGE.
+			getCode(), content), STD_MSG_DIM);
+    }
+
+    public static byte[] newTransferPaddingMessage(final int padding)
+	    throws Exception {
+	if (padding > 15) {
+	    throw new IllegalArgumentException("padding value too big");
+	}
+	byte[] content = new byte[2];
+	content[0] = (byte) MessageType.TRANSFER_PADDING.getCode();
+	content[1] = (byte) padding;
+
+	return resolvePadding(content, TRANSFER_PADDING_MDG_DIM);
+    }
+
+    public static byte[] newCheckFileMessage(final String relativeName)
+	    throws Exception {
+	byte[] content;
+	content = relativeName.getBytes("US-ASCII"); //TODO: verifica inainte daca e ASCII
+
+	if (content.length >= STD_MSG_DIM) {
+	    throw new Exception("too big file relative name " + relativeName
+		    + " for modify file message");
+	}
+
+	return resolvePadding(concatenate(
+		(byte) MessageType.CHECK_FILE_MESSAGE.
+			getCode(), content), STD_MSG_DIM);
+    }
+
+    public static byte[] newCheckFileMessageResponse(final String relativeName,
+	    final byte[] md5)
+	    throws Exception {
+	byte[] content;
+	try {
+	    content = relativeName.getBytes("US-ASCII"); //TODO: verifica inainte daca e ASCII
+	} catch (Exception ex) {
+	    //TODO: e naspa
+	    System.err.println("failed to get name as ASCII");
+	    return null;
+	}
+
+	if (content.length >= STD_MSG_DIM) {
+	    throw new Exception("too big file relative name " + relativeName
+		    + " for modify file message");
+	}
+
+	if (md5 != null && md5.length == 16) {
+	    return resolvePadding(concatenate(resolvePadding(concatenate(
+		    (byte) MessageType.CHECK_FILE_MESSAGE_RSP.getCode(), content),
+		    STD_MSG_DIM), md5), CHECK_FILE_MSG_RSP_DIM);
+	}
+
+	return resolvePadding(new byte[]{
+	    (byte) MessageType.CHECK_FILE_MESSAGE_RSP.getCode()},
+		CHECK_FILE_MSG_RSP_DIM);
     }
 
     public static byte[] newTestMessage() {
 	byte[] content = new byte[1];
 
 	content[0] = (byte) MessageType.TEST_MESSAGE.getCode();
-	return resolvePadding(content, TEST_MSG_DIM);
+	return resolvePadding(content, STD_MSG_DIM);
     }
 
-    public static byte[] newTestResponseMessage(final String authToken) throws
+    public static byte[] newTestMessageResponse(final String authToken) throws
 	    Exception {
 	byte[] content;
 	try {
@@ -96,14 +166,14 @@ public class MessageFactory {
 	    return null;
 	}
 
-	if (content.length >= UPDATE_FILE_MSG_DIM) {
+	if (content.length >= STD_MSG_DIM) {
 	    throw new Exception("too big file relative name " + authToken
 		    + " for modify file message");
 	}
 
 	return resolvePadding(concatenate(
 		(byte) MessageType.TEST_MESSAGE_RSP.
-			getCode(), content), TEST_MSG_DIM);
+			getCode(), content), STD_MSG_DIM);
     }
 
     public static byte[] newClosingMessage() {
@@ -126,11 +196,41 @@ public class MessageFactory {
 
     }
 
-    public static byte[] concatenate(final byte[] arr1, final byte[] arr2) {
-	byte[] result = new byte[arr1.length + arr2.length];
+    /*@SuppressWarnings("empty-statement")
+    public static byte[] trimPadding(final byte[] bytes, int last,
+	    int maxPadding) {
 
-	System.arraycopy(arr1, 0, result, 0, arr1.length);
-	System.arraycopy(arr2, 0, result, arr1.length, arr2.length);
+	if (last - maxPadding > 0) {
+	    maxPadding = last - maxPadding;
+	} else {
+	    maxPadding = 0;
+	}
+	int i = last;
+	while (i > maxPadding && bytes[--i] == 0);
+
+	return Arrays.copyOfRange(bytes, 0, i);
+
+    }*/
+
+    public static byte[] concatenate(final byte[]... arrays) {
+	if (arrays == null || arrays.length == 0) {
+	    return null;
+	}
+	if (arrays.length == 1) {
+	    return arrays[0];
+	}
+
+	int length = 0;
+	for (byte[] arr : arrays) {
+	    length += arr.length;
+	}
+	byte[] result = new byte[length];
+
+	int current = 0;
+	for (byte[] arr : arrays) {
+	    System.arraycopy(arr, 0, result, current, arr.length);
+	    current += arr.length;
+	}
 
 	return result;
     }

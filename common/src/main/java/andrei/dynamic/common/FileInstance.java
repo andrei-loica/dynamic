@@ -6,12 +6,14 @@ import java.io.File;
  *
  * @author Andrei
  */
-public class FileInstance extends AbstractContentNode{
+public class FileInstance
+	extends AbstractContentNode {
 
-    public FileInstance(final File file) throws Exception {
-	super(file.getAbsolutePath(), file.lastModified());
-	
-	if (!file.isFile()){
+    public FileInstance(final File file, final DirectoryInstance parent) throws
+	    Exception {
+	super(file.getAbsolutePath(), file.lastModified(), parent);
+
+	if (!file.isFile()) {
 	    throw new Exception(getPath() + " is not a file");
 	}
     }
@@ -20,5 +22,5 @@ public class FileInstance extends AbstractContentNode{
     public boolean isDirectory() {
 	return false;
     }
-    
+
 }

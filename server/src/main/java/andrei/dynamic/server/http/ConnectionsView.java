@@ -1,6 +1,6 @@
 package andrei.dynamic.server.http;
 
-import andrei.dynamic.server.ClientWithServer;
+import andrei.dynamic.server.ConnectionWrapper;
 import andrei.dynamic.server.CoreManager;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
@@ -52,7 +52,7 @@ public class ConnectionsView
 
     private void writePage(final OutputStream out) throws IOException {
 
-	final Collection<ClientWithServer> connected;
+	final Collection<ConnectionWrapper> connected;
 	final Set<String> offline;
 	final Set<String> blocked;
 
@@ -72,7 +72,7 @@ public class ConnectionsView
 		+ connected.size() + "/" + (connected.size() + offline.size())
 		+ " connected)</i></div></div><table id=\"connections\"><tr id=\"table-description\"><th>State</th><th>Name</th><th>Connected IP Address</th><th colspan=\"3\" style=\"text-align: center\">Actions</th></tr>";
 
-	for (ClientWithServer client : connected) {
+	for (ConnectionWrapper client : connected) {
 	    blockedNotConfigured.remove(client.getAuthToken());
 	    if (blocked.contains(client.getAuthToken())) {
 		content = content

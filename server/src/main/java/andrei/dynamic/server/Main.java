@@ -18,7 +18,6 @@ import javax.xml.bind.Unmarshaller;
 public class Main
 	implements ShutdownListener {
 
-    private static final int DEFAULT_CHECK_PERIOD = 3000;
     private static final int DEFAULT_MAX_DEPTH = 5;
 
     private final DirectoryManager dir;
@@ -38,9 +37,6 @@ public class Main
 	validateConfig();
 
 	final XmlFileSettings fileSettings = initialConfig.getFileSettings();
-	if (fileSettings.getCheckPeriodMillis() == 0) {
-	    fileSettings.setCheckPeriodMillis(DEFAULT_CHECK_PERIOD);
-	}
 	if (fileSettings.getMaxDirectoryDepth() == 0) {
 	    fileSettings.setMaxDirectoryDepth(DEFAULT_MAX_DEPTH);
 	}

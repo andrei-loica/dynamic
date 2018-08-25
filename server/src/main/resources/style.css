@@ -6,32 +6,31 @@ body {
 #menu{
 	list-style-type: none;
 	overflow: hidden;
-	padding: 3px;
+	display: inline-block;
+	width: 100%;
 	float: none;
 	margin: 0;
+	padding: 0;
 	background: linear-gradient(to bottom, rgb(180, 180, 220), rgb(120, 120, 180));
-	/*background: linear-gradient(to bottom, rgb(195, 195, 240), rgb(170, 170, 230));*/
-	/*background-color: rgb(185, 185, 240);*/
 }
 
 #menu li{
-	/*font-family: "Comic Sans MS", cursive, sans-serif;*/
     font-size: 18px;
-	padding: 5px 5px 5px 25px;
+	padding: 10px 5px 13px 25px;
+	overflow: hidden;
 	width: 7em;
 	float: left;
-	/*background-color: rgb(180, 240, 220);*/
-	background: linear-gradient(to bottom, rgb(225, 255, 240), rgb(140, 210, 190));
-	border: 1px solid rgb(180, 180, 180);
-	border-radius: 0 0 4px 8px;
+	color: rgb(60,60,140);
 }
 
 #menu .selected{
-	background: linear-gradient(to bottom, rgb(210, 240, 225), rgb(100, 180, 165));
+	color: rgb(30, 30, 90);
+	background: linear-gradient(to bottom, rgb(150, 150, 190), rgb(90, 90, 150));
+	
 }
 
 #menu li:not(.selected):hover{
-	background: linear-gradient(to bottom, rgb(240, 255, 235), rgb(180, 230, 215));
+	background: linear-gradient(to bottom, rgb(200, 200, 240), rgb(140, 140, 200));
 }
 
 #conn-content {
@@ -56,22 +55,12 @@ a {
 	color: rgb(130, 130, 210);
 }
 
-#menu a{
-	color: rgb(115, 70, 160);
-}
-
-#menu a:hover{
-	text-decoration: underline;
-	color: rgb(130, 130, 200);
-}
-
 #conn-content a:hover{
 	text-decoration: underline;
 	color: rgb(105, 80, 180);
 }
 
 .description {
-	/*background-color:rgb(240,240,240);*/
 	font-size: 17px;
 	overflow: hidden;
 	text-align: left;
@@ -83,20 +72,16 @@ a {
 }
 
 .description div{
-        height: 50px;
+    height: 50px;
 	display: table-cell;
-        overflow: hidden;
+    overflow: hidden;
 	vertical-align: middle;
-}
-
-#left-part {
-	border-right: 1px solid rgb(150,150,150);
 }
 
 .part {
 	box-sizing: border-box;
-        -moz-box-sizing: border-box;
-        -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    -webkit-box-sizing: border-box;
 	width: 50%;
 	padding:0;
 	float: left;
@@ -104,14 +89,15 @@ a {
 	overflow: hidden;
 }
 
-input:not([type="submit"]){
+input:not([type="submit"]), select{
+        min-width: 7em;
 	margin: 2px;
 	padding: 3px;
 	border: 1px solid rgb(180,180,180);
 	border-radius: 3px;
 }
 
-input[type="submit"] {
+input[type="submit"]{
 	margin: 2px;
 	padding: 3px 5px 3px 5px;
 	border: 2px solid rgb(180,180,180);
@@ -149,8 +135,17 @@ input[type="submit"]:hover {
 	background-color: rgb(245,245,245);
 }
 
+#files-content form > *{
+	margin: 3px;
+}
+
 #files-content form input{
 	display: block;
+}
+
+#files-content form input[type="submit"]{
+	margin-top:10px;
+	margin: 10px auto 3px auto;
 }
 
 #files-content form div{
@@ -226,6 +221,10 @@ input[type="submit"]:hover {
 	width: 6em;
 }
 
+select option[selected]{
+    background-color:rgb(230,230,230);
+}
+
 .connected {
 	width: 15px;
 	height: 15px;
@@ -256,15 +255,11 @@ input[type="submit"]:hover {
 }
 
 th {
-        text-align: left;
+    text-align: center;
 	font-size: 15px;
 	border: 1px solid rgb(160,160,160);
 	padding: 10px;
 	font-weight: normal;
-}
-
-.aligned-cell{
-	padding-left: 30px;
 }
 
 table {

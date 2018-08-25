@@ -76,7 +76,7 @@ public class ConnectionsView
 	    blockedNotConfigured.remove(client.getAuthToken());
 	    if (blocked.contains(client.getAuthToken())) {
 		content = content
-			+ "<tr><th class=\"aligned-cell\"><span class=\"blocked\" title=\"Blocked and closing\"></span></th><th>"
+			+ "<tr><th><span class=\"blocked\" title=\"Blocked and closing\"></span></th><th>"
 			+ client.getAuthToken() + "</th><th>" + client.
 			getStringAddress()
 			+ "</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/unblock?client="
@@ -84,7 +84,7 @@ public class ConnectionsView
 			+ " \" onclick=\"return confirm('Confirm unblock action?')\">unblock</a></th></tr>";
 	    } else if (client.isClosing()) {
 		content = content
-			+ "<tr><th class=\"aligned-cell\"><span class=\"closing\" title=\"Disconnecting\"></span></th><th>"
+			+ "<tr><th><span class=\"closing\" title=\"Disconnecting\"></span></th><th>"
 			+ client.getAuthToken() + "</th><th>" + client.
 			getStringAddress()
 			+ "</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/block?client="
@@ -92,7 +92,7 @@ public class ConnectionsView
 			+ "\" onclick=\"return confirm('Confirm block action?')\">block</a></th></tr>";
 	    } else {
 		content = content
-			+ "<tr><th class=\"aligned-cell\"><span class=\"connected\" title=\"Connected\"></span></th><th>"
+			+ "<tr><th><span class=\"connected\" title=\"Connected\"></span></th><th>"
 			+ client.getAuthToken() + "</th><th>" + client.
 			getStringAddress()
 			+ "</th><th class=\"aligned-cell\"><a href=\"/actions/push?client="
@@ -108,13 +108,13 @@ public class ConnectionsView
 	for (String client : offline) {
 	    if (blocked.contains(client)) {
 		content = content
-			+ "<tr><th class=\"aligned-cell\"><span class=\"blocked\" title=\"Blocked\"></span></th><th>"
+			+ "<tr><th><span class=\"blocked\" title=\"Blocked\"></span></th><th>"
 			+ client
 			+ "</th><th>N/A</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/unblock?client="
 			+ client + "\" onclick=\"return confirm('Confirm unblock action?')\">unblock</a></th></tr>";
 	    } else {
 		content = content
-			+ "<tr><th class=\"aligned-cell\"><span class=\"offline\" title=\"Not connected\"></span></th><th>"
+			+ "<tr><th><span class=\"offline\" title=\"Not connected\"></span></th><th>"
 			+ client
 			+ "</th><th>N/A</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/block?client="
 			+ client + "\" onclick=\"return confirm('Confirm block action?')\">block</a></th></tr>";
@@ -123,7 +123,7 @@ public class ConnectionsView
 
 	for (String client : blockedNotConfigured) {
 	    content = content
-		    + "<tr><th class=\"aligned-cell\"><span class=\"blocked\" title=\"Blocked and not configured\"></span></th><th>"
+		    + "<tr><th><span class=\"blocked\" title=\"Blocked and not configured\"></span></th><th>"
 		    + client
 		    + "</th><th>N/A</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/unblock?client="
 		    + client + "\" onclick=\"return confirm('Confirm unblock action?')\">unblock</a></th></tr>";

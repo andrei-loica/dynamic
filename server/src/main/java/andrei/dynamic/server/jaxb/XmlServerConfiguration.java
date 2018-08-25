@@ -29,6 +29,12 @@ public class XmlServerConfiguration {
     @XmlElement
     private String key;
     
+    @XmlElement
+    private String logLevel;
+    
+    @XmlElement
+    private String logLocation;
+    
     @XmlElement(name = "file-settings")
     private XmlFileSettings fileSettings;
     
@@ -71,6 +77,22 @@ public class XmlServerConfiguration {
 
     public void setKey(String key) {
 	this.key = key;
+    }
+
+    public String getLogLevel() {
+	return logLevel;
+    }
+
+    public void setLogLevel(String logLevel) {
+	this.logLevel = logLevel;
+    }
+
+    public String getLogLocation() {
+	return logLocation;
+    }
+
+    public void setLogLocation(String logLocation) {
+	this.logLocation = logLocation;
     }
 
     public XmlFileSettings getFileSettings() {

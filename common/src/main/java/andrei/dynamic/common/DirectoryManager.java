@@ -111,8 +111,8 @@ public final class DirectoryManager {
 		if (worker != null) {
 		    worker.setCheckPeriod(checkPeriod);
 		} else {
-		    System.err.println(
-			    "a disparut worker-ul pentru directory manager!!!");
+		    Log.fatal("directory manager worker is null in state "
+			    + state);
 		}
 	    }
 	}
@@ -244,14 +244,16 @@ public final class DirectoryManager {
 		    + state);
 	}
 	ArrayList<FileInstance> files = lastImage.getAllFiles(maxDepth);
-	System.out.println("am incarcat " + files.size() + " fisiere");
+	if (Log.isDebugEnabled()) {
+	    Log.debug("loading " + files.size() + " files from root directory");
+	}
 
 	for (FileInstance file : files) {
 	    try {
 		checkSums.put(file.getPath(), getLocalFileMD5(file.getPath()));
 		notifyLoaded(file);
 	    } catch (Exception ex) {
-		System.err.println("failed to load file " + file);
+		Log.debug("failed to load file " + file);
 	    }
 	}
 
@@ -259,12 +261,12 @@ public final class DirectoryManager {
 
     private synchronized void workerStopped() {
 	worker = null;
-	switch (state){
+	switch (state) {
 	    case DEREGISTERED_WAITING_WORKER_STOP:
 		listener = null;
 		state = State.INITIALIZED_NOT_REGISTERED;
 		break;
-		
+
 	    case REGISTERED_WORKING:
 		state = State.REGISTERED_NOT_WORKING;
 		break;

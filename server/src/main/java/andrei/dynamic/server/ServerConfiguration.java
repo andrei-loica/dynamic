@@ -16,6 +16,8 @@ public class ServerConfiguration {
     private int maxClientConnections;
     private String key;
     private FileSettings fileSettings;
+    private String logLevel;
+    private String logLocation;
     
     public ServerConfiguration(){
 	
@@ -28,6 +30,8 @@ public class ServerConfiguration {
 	maxClientConnections = original.getMaxClientConnections();
 	key = original.getKey();
 	fileSettings = new FileSettings(original.getFileSettings());
+	logLevel = original.getLogLevel().toUpperCase();
+	logLocation = original.getLogLocation();
     }
 
     public int getLocalControlPort() {
@@ -77,6 +81,22 @@ public class ServerConfiguration {
     public void setFileSettings(FileSettings fileSettings) {
 	this.fileSettings = fileSettings;
     }
+
+    public String getLogLevel() {
+	return logLevel;
+    }
+
+    public void setLogLevel(String logLevel) {
+	this.logLevel = logLevel;
+    }
+
+    public String getLogLocation() {
+	return logLocation;
+    }
+
+    public void setLogLocation(String logLocation) {
+	this.logLocation = logLocation;
+    }
     
     public XmlServerConfiguration toJaxb(){
 	final XmlServerConfiguration converted = new XmlServerConfiguration();
@@ -95,6 +115,8 @@ public class ServerConfiguration {
 	convertedSettings.setRootDirectory(fileSettings.getRootDirectory());
 	
 	converted.setFileSettings(convertedSettings);
+	converted.setLogLevel(logLevel);
+	converted.setLogLocation(logLocation);
 	
 	return converted;
     }

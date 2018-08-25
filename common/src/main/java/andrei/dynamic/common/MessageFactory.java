@@ -55,10 +55,9 @@ public class MessageFactory {
 	    Exception {
 	byte[] content;
 	try {
-	    content = relativeName.getBytes("US-ASCII"); //TODO: verifica inainte daca e ASCII
+	    content = relativeName.getBytes("US-ASCII");
 	} catch (Exception ex) {
-	    //TODO: e naspa
-	    System.err.println("failed to get name as ASCII");
+	    Log.warn("failed to get string as ASCII for " + relativeName, ex);
 	    return null;
 	}
 
@@ -76,10 +75,9 @@ public class MessageFactory {
 	    throws Exception {
 	byte[] content;
 	try {
-	    content = relativeName.getBytes("US-ASCII"); //TODO: verifica inainte daca e ASCII
+	    content = relativeName.getBytes("US-ASCII");
 	} catch (Exception ex) {
-	    //TODO: e naspa
-	    System.err.println("failed to get name as ASCII");
+	    Log.warn("failed to get string as ASCII for " + relativeName, ex);
 	    return null;
 	}
 
@@ -125,10 +123,9 @@ public class MessageFactory {
 	    throws Exception {
 	byte[] content;
 	try {
-	    content = relativeName.getBytes("US-ASCII"); //TODO: verifica inainte daca e ASCII
+	    content = relativeName.getBytes("US-ASCII");
 	} catch (Exception ex) {
-	    //TODO: e naspa
-	    System.err.println("failed to get name as ASCII");
+	    Log.warn("failed to get string as ASCII for " + relativeName, ex);
 	    return null;
 	}
 
@@ -159,10 +156,9 @@ public class MessageFactory {
 	    Exception {
 	byte[] content;
 	try {
-	    content = authToken.getBytes("US-ASCII"); //TODO: verifica inainte daca e ASCII
+	    content = authToken.getBytes("US-ASCII");
 	} catch (Exception ex) {
-	    //TODO: e naspa
-	    System.err.println("failed to get token as ASCII");
+	    Log.warn("failed to get string as ASCII for " + authToken, ex);
 	    return null;
 	}
 

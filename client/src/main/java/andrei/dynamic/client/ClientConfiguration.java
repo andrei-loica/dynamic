@@ -35,6 +35,12 @@ public class ClientConfiguration {
     
     @XmlElement
     private String key;
+    
+    @XmlElement
+    private String logLevel;
+    
+    @XmlElement
+    private String logLocation;
 
     
     public String getRemoteControlAddress() {
@@ -99,6 +105,22 @@ public class ClientConfiguration {
 
     public void setKey(String key) {
 	this.key = key;
+    }
+
+    public String getLogLevel() {
+	return logLevel;
+    }
+
+    public void setLogLevel(String logLevel) {
+	this.logLevel = logLevel;
+    }
+
+    public String getLogLocation() {
+	return logLocation;
+    }
+
+    public void setLogLocation(String logLocation) {
+	this.logLocation = logLocation;
     }
     
 }

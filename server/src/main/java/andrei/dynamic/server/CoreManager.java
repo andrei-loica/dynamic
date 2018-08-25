@@ -1,11 +1,12 @@
 package andrei.dynamic.server;
 
 import andrei.dynamic.server.jaxb.XmlServerConfiguration;
-import andrei.dynamic.common.AbstractContentNode;
 import andrei.dynamic.common.DirectoryChangesListener;
 import andrei.dynamic.common.DirectoryManager;
 import andrei.dynamic.common.DirectoryPathHelper;
 import andrei.dynamic.common.FileInstance;
+import andrei.dynamic.common.Log;
+import andrei.dynamic.common.MustResetConnectionException;
 import andrei.dynamic.server.http.HttpManager;
 import andrei.dynamic.server.jaxb.XmlFileGroup;
 import java.io.File;
@@ -37,6 +38,7 @@ public class CoreManager
     private final DirectoryManager dir;
     private final ServerConfiguration config;
     private final String configFilePath;
+    private boolean stopped;
     private final byte[] key;
     private final byte[] iv;
     private ConnectionListener connectionListener; //should never be null
@@ -59,6 +61,7 @@ public class CoreManager
 	this.dir = dir;
 	config = initialConfig;
 	this.configFilePath = configFilePath;
+	stopped = false;
 	validTokens = new HashSet<>();
 	offlineTokens = new HashSet<>();
 	blockedTokens = new HashSet<>();
@@ -91,7 +94,7 @@ public class CoreManager
 	try {
 	    dataServer.setSoTimeout(2000);
 	} catch (Exception ex) {
-	    System.err.println("failed to set data transfer server timeout");
+	    Log.warn("failed to set data transfer server timeout", ex);
 	}
 	connectionListener.start();
 
@@ -105,6 +108,7 @@ public class CoreManager
 
     public void stop() {
 
+	stopped = true;
 	httpManager.stop();
 	connectionListener.stopWorking();
 	//restul pe connection listener stopped
@@ -141,7 +145,7 @@ public class CoreManager
 
 	    }
 	} catch (Exception ex) {
-	    System.out.println("failed to load file " + file.getPath());
+	    Log.warn("failed to load file " + file.getPath(), ex);
 	}
     }
 
@@ -173,9 +177,9 @@ public class CoreManager
 
 		if (worker != null) {
 		    worker.addTask(new ClientTask(
-			    ClientTaskType.SEND_UPDATE_FILE, file));
+			    ClientTaskType.UPDATE_REMOTE_FILE, file));
 		    worker.addTask(new ClientTask(
-			    ClientTaskType.SEND_CHECK_FILE, file.getPath()));
+			    ClientTaskType.CHECK_FILE, file.getPath()));
 		}
 		tokens.add(token);
 		HashSet<String> files = runtimeFilesForToken.get(token);
@@ -183,7 +187,7 @@ public class CoreManager
 
 	    }
 	} catch (Exception ex) {
-	    System.out.println("failed to send create file " + file.getPath());
+	    Log.warn("failed to send update for file " + file.getPath(), ex);
 	}
     }
 
@@ -192,8 +196,8 @@ public class CoreManager
 	try {
 	    HashSet<String> tokens = runtimeTokensForFile.get(file.getPath());
 	    if (tokens == null) {
-		System.out.println("file " + file.getPath()
-			+ "modified but no client listens");
+		Log.debug("modified file " + file.getPath()
+			+ " but no client listens");
 		return;
 	    }
 	    for (String token : tokens) {
@@ -202,14 +206,13 @@ public class CoreManager
 
 		if (worker != null) {
 		    worker.addTask(new ClientTask(
-			    ClientTaskType.SEND_UPDATE_FILE, file));
+			    ClientTaskType.UPDATE_REMOTE_FILE, file));
 		    worker.addTask(new ClientTask(
-			    ClientTaskType.SEND_CHECK_FILE, file.getPath()));
+			    ClientTaskType.CHECK_FILE, file.getPath()));
 		}
 	    }
 	} catch (Exception ex) {
-	    System.out.println("failed to send modify file " + file.getPath()
-		    + ": " + ex.getMessage());
+	    Log.warn("failed to send update for file " + file.getPath(), ex);
 	}
     }
 
@@ -250,8 +253,8 @@ public class CoreManager
 	try {
 	    HashSet<String> tokens = runtimeTokensForFile.remove(file.getPath());
 	    if (tokens == null) {
-		System.out.println("file " + file.getPath()
-			+ "deleted but no client listens");
+		Log.warn("deleted file " + file.getPath()
+			+ " but no client listens");
 		return;
 	    }
 	    for (String token : tokens) {
@@ -260,88 +263,113 @@ public class CoreManager
 
 		if (worker != null) {
 		    worker.addTask(new ClientTask(
-			    ClientTaskType.SEND_DELETE_FILE, file));
+			    ClientTaskType.DELETE_REMOTE_FILE, file));
 		}
 		runtimeFilesForToken.get(token).remove(file.getPath());
 	    }
 	} catch (Exception ex) {
-	    System.out.println("failed to send delete file " + file.getPath()
+	    Log.warn("failed to notify deletion for file " + file.getPath()
 		    + ": " + ex.getMessage());
 	}
     }
 
     private synchronized void connectionListenerStopped() {
-	System.out.println("connection listener stopped");
-	dir.deregisterListener();
+	if (stopped) {
+	    Log.info("connection listener stopped");
+	    dir.deregisterListener();
 
-	if (clientWorkers.isEmpty()) {
-	    try {
-		dataServer.close();
-		System.out.println("closed data transfer server");
-	    } catch (Exception ex) {
-		System.err.println("failed to close data server: " + ex.
-			getMessage());
+	    if (clientWorkers.isEmpty()) {
+		try {
+		    dataServer.close();
+		    Log.info("closed data transfer server");
+		} catch (Exception ex) {
+		    Log.warn("failed to close data transfer server", ex);
+		}
 	    }
-	}
 
-	for (ClientWorker worker : clientWorkers) {
-	    System.out.println("sent stop for worker " + worker.getClient().
-		    getStringAddress());
-	    worker.stopWorking();
+	    for (ClientWorker worker : clientWorkers) {
+		Log.info("sent stop for client " + worker.getClient().
+			getStringAddress());
+		worker.stopWorking();
+	    }
+	} else {
+	    Log.fatal("connection listener unexpectedly stopped");
+	    try {
+		connectionListener = new ConnectionListener(this, config.
+			getLocalControlPort());
+		connectionListener.start();
+	    } catch (Exception ex) {
+		Log.fatal("failed restarting connection listener", ex);
+		stop();
+	    }
+	    Log.info("restarted connection listener");
 	}
     }
 
     public void httpServerStopped() {
-	System.out.println("http server stopped");
+	if (stopped) {
+	    Log.info("http server stopped");
+	} else {
+	    Log.fatal("http server unexpectedly stopped");
+	    try {
+		httpManager = new HttpManager(this, config.getLocalHttpPort());
+		httpManager.start();
+	    } catch (Exception ex) {
+		Log.fatal("failed to restart http server", ex);
+		stop();
+	    }
+	    Log.info("restarted http server");
+	}
     }
 
     private synchronized void clientWorkerStopped(final ClientWorker worker) {
-	System.out.println("client connection " + worker.getClient().
-		getStringAddress() + " closed");
+	Log.fine("client connection " + worker.getClient() + " closed (token "
+		+ worker.getToken() + ")");
 
 	boolean wasConnected;
 	if (!(wasConnected = (connectedTokensWithWorkers.remove(worker.
 		getToken()) != null))) {
-	    System.out.println("clientul " + worker.getToken()
-		    + " nu era conectat");
+	    Log.debug("client " + worker.getClient() + " was not authenticated");
 	}
 	if (wasConnected && validTokens.contains(worker.getToken())) {
 	    offlineTokens.add(worker.getToken());
 	}
 	if (!clientWorkers.remove(worker)) {
-	    System.err.println("worker-ul nu era inregistrat");
+	    Log.warn("worker for client " + worker.getClient()
+		    + " was not registered on stopped callback");
 	}
 	if (authenticatingClients.remove(worker.getClient())) {
-	    System.err.println("clientul " + worker.getToken()
-		    + " nu a fost autentificat");
+	    Log.debug("client " + worker.getClient()
+		    + " stopped during authentication");
 	}
 
 	if (!connectionListener.isActive() && clientWorkers.isEmpty()) {
 	    try {
 		dataServer.close();
-		System.out.println("closed data transfer server");
+		Log.info("closed data transfer server");
 	    } catch (Exception ex) {
-		System.err.println("failed to close data server: " + ex.
-			getMessage());
+		Log.warn("failed to close data transfer server", ex);
 	    }
 	}
     }
 
     private synchronized void refusedClient(final ClientWorker worker) {
-	System.out.println("client connection " + worker.getClient().
-		getStringAddress() + " closed");
+	Log.fine("client connection " + worker.getClient().
+		getStringAddress() + " refused and closed");
 
 	if (!clientWorkers.remove(worker)) {
-	    System.err.println("worker-ul nu era inregistrat");
+	    Log.warn("worker for client " + worker.getClient()
+		    + " was not registered on refused callback");
 	}
 	if (authenticatingClients.remove(worker.getClient())) {
-	    System.err.println("clientul " + worker.getToken()
-		    + " nu a fost autentificat");
+	    Log.debug("client " + worker.getClient()
+		    + " refused during authentication");
 	}
     }
 
     private synchronized void incomingConnection(final Socket client) {
 
+	Log.fine("incoming connection from " + client.getInetAddress());
 	ConnectionWrapper clientWrapper;
 	ClientWorker clientWorker;
 	try {
@@ -350,9 +378,8 @@ public class CoreManager
 	    clientWorker = new ClientWorker(clientWrapper, this);
 	} catch (Exception ex) {
 	    //TODO failed to attach wrapper
-	    System.out.println("failed to attach client wrapper for " + client.
-		    getInetAddress());
-	    ex.printStackTrace(System.err);
+	    Log.warn("failed to attach client wrapper for incoming connection "
+		    + client.getInetAddress(), ex);
 	    return;
 	}
 
@@ -363,11 +390,12 @@ public class CoreManager
 		clientWorkers.add(clientWorker);
 		clientWorker.start();
 	    } else {
-		System.out.println("refused client connection");
+		Log.fine("refused connection " + client.getInetAddress()
+			+ " because maximum connections reached");
 		try {
 		    client.close();
 		} catch (Exception ex) {
-		    System.err.println("failed closing the client");
+		    Log.info("failed closing refused client socket");
 		    //TODO naspa
 		}
 	    }
@@ -379,38 +407,23 @@ public class CoreManager
 	    final String authToken) {
 
 	if (!authenticatingClients.remove(worker.getClient())) {
-	    System.err.println(
-		    "s-a autentificat un client care nu era in curs de autentificare");
+	    Log.warn(
+		    "authenticated a client that misses from authenticating clients set ("
+		    + worker.getClient() + ")");
 	}
 	if (connectedTokensWithWorkers.containsKey(authToken)) {
-	    System.err.println("client " + connectedTokensWithWorkers.get(
-		    authToken).getClient().getStringAddress()
-		    + " already connected with token " + authToken);
+	    Log.fine("client " + connectedTokensWithWorkers.get(
+		    authToken).getClient() + " already connected with token "
+		    + authToken + "; connection " + worker.getClient()
+		    + " refused");
 	    return false;
 	}
-	System.out.println("authenticated client " + worker.getClient().
-		getStringAddress() + " with token " + authToken);
+	Log.fine("authenticated client " + worker.getClient() + " with token "
+		+ authToken);
 
 	offlineTokens.remove(authToken);
 	connectedTokensWithWorkers.put(authToken, worker);
 	return true;
-    }
-
-    public void stopClient(final String clientToken) {
-
-	final ClientWorker worker = connectedTokensWithWorkers.remove(
-		clientToken);
-
-	if (worker == null) {
-	    System.err.println("no client is connected with token "
-		    + clientToken);
-	    return;
-	}
-
-	System.out.println("stopping client " + worker.getClient().
-		getStringAddress());
-	worker.stopWorking();
-
     }
 
     public byte[] getSecretKey() {
@@ -500,6 +513,7 @@ public class CoreManager
 	dir.setCheckPeriod(config.getFileSettings().getCheckPeriodMillis());
 	dir.setMaxDepth(config.getFileSettings().getMaxDirectoryDepth());
 	dir.checkWorker();
+	Log.setLevel(config.getLogLevel());
 
 	processFileSettings();
 
@@ -507,13 +521,13 @@ public class CoreManager
 	for (Entry<String, ClientWorker> entry : connectedTokensWithWorkers.
 		entrySet()) {
 	    if (!validTokens.contains(entry.getKey())) {
+		Log.fine("closing connection " + entry.getValue().getClient()
+			+ " because token " + entry.getKey()
+			+ " is no longer valid");
 		entry.getValue().stopWorking();
 	    } else {
-		if (!entry.getValue().addTask(new ClientTask(
-			ClientTaskType.GLOBAL_CHECK, null))) {
-		    System.err.println("failed to issue global check for "
-			    + entry.getKey());
-		}
+		entry.getValue().addTask(new ClientTask(
+			ClientTaskType.GLOBAL_CHECK, null));
 	    }
 	}
     }
@@ -553,7 +567,6 @@ public class CoreManager
 		throw new Exception("no client connected for token " + token);
 	    }
 
-	    System.out.println("closing client " + token + " at request");
 	    worker.stopWorking();
 	}
     }
@@ -580,7 +593,7 @@ public class CoreManager
     public void pushClient(final String token) {
 	if (!connectedTokensWithWorkers.get(token).addTask(new ClientTask(
 		ClientTaskType.GLOBAL_CHECK, null))) {
-	    System.err.println("push failed for " + token);
+	    Log.warn("web request: push failed for " + token);
 	}
     }
 
@@ -601,7 +614,7 @@ public class CoreManager
 	    try {
 		serverSocket.setSoTimeout(4000);
 	    } catch (Exception ex) {
-		System.out.println(
+		Log.warn(
 			"failed setting socket timeout for connection listener");
 	    }
 	    isActive = true;
@@ -621,11 +634,14 @@ public class CoreManager
 		} catch (SocketTimeoutException ex) {
 		    //nimic
 		} catch (Exception ex) {
+		    Log.fatal("encountered exception in connection listener",
+			    ex);
 		    isActive = false;
 		    try {
 			serverSocket.close();
 		    } catch (Exception ex1) {
-			//nimic
+			Log.warn("failed closing connection listener socket",
+				ex);
 		    }
 		    break;
 		}
@@ -667,29 +683,41 @@ public class CoreManager
 	    try {
 		authToken = client.testConnection();
 		if (authToken == null) {
-		    System.err.println("failed authentication with client "
-			    + client.getStringAddress());
 		    stopWorking();
 		    tasks = null;
+		    client.disconnect();
+		    manager.refusedClient(this);
+		    return;
 		}
-	    } catch (Exception ex) {
-		System.err.println("exception while authenticating client "
-			+ client.getStringAddress());
+	    } catch (MustResetConnectionException ex) {
+		Log.fine("failed authenticating client " + client.
+			getStringAddress(), ex);
 		stopWorking();
 		tasks = null;
+		client.disconnect();
+		manager.refusedClient(this);
+		return;
+	    } catch (Exception ex) {
+		Log.warn("exception while authenticating client "
+			+ client.getStringAddress(), ex);
+		stopWorking();
+		tasks = null;
+		client.disconnect();
+		manager.refusedClient(this);
+		return;
 	    }
 
 	    if (!manager.validTokens.contains(authToken)) {
-		System.err.println("authentication failed for client " + client.
-			getStringAddress() + " with token " + authToken);
+		Log.fine("client " + client.getStringAddress()
+			+ " submitted not valid token " + authToken);
 		stopWorking();
 		tasks = null;
 		client.disconnect();
 		manager.refusedClient(this);
 		return;
 	    } else if (manager.blockedTokens.contains(authToken)) {
-		System.out.println("blocked client " + client.getStringAddress()
-			+ " with token " + authToken);
+		Log.fine("client " + client.getStringAddress()
+			+ " submitted blocked token " + authToken);
 		stopWorking();
 		tasks = null;
 		client.disconnect();
@@ -718,11 +746,10 @@ public class CoreManager
 
 		    if (!authToken.equals(token)) {
 			if (token != null) {
-			    System.err.println(
+			    Log.fine(
 				    "received wrong token while testing connection on client "
 				    + client.getStringAddress());
 			}
-			System.out.println("closed because token " + token);
 			stopWorking();
 			client.disconnect();
 			manager.clientWorkerStopped(this);
@@ -731,10 +758,18 @@ public class CoreManager
 			tasks = null;
 			return;
 		    }
+		} catch (MustResetConnectionException ex) {
+		    Log.fine("failed test connection for client " + client, ex);
+		    stopWorking();
+		    client.disconnect();
+		    manager.clientWorkerStopped(this);
+		    client = null;
+		    manager = null;
+		    tasks = null;
+		    return;
 		} catch (Exception ex) {
-		    //TODO vezi ca nu s-a putut lua un task
-		    System.err.println("failed processing task");
-		    ex.printStackTrace(System.err);
+		    Log.warn("encountered exception while working for client "
+			    + client, ex);
 		}
 	    }
 
@@ -749,9 +784,9 @@ public class CoreManager
 
 		    executeTask(task);
 		} catch (Exception ex) {
-		    System.out.println(
-			    "failed processing task; remaining tasks: " + tasks.
-				    size());
+		    Log.warn(
+			    "failed processing task (remaining tasks: " + tasks.
+				    size() + ")", ex);
 		    break;
 		    //TODO vezi ca au mai ramas tasks.size() task-uri
 		}
@@ -782,9 +817,8 @@ public class CoreManager
 		try {
 		    tasks.offer(task, WAIT_TIME, TimeUnit.MILLISECONDS);
 		} catch (Exception ex) {
-		    //TODO cu naspa
-		    System.err.println("failed passing task to client "
-			    + client.getStringAddress());
+		    Log.warn("failed passing task " + task.type + " to client "
+			    + client + " with token " + authToken);
 		    return false;
 		}
 		return true;
@@ -794,28 +828,31 @@ public class CoreManager
 	}
 
 	private void executeTask(final ClientTask task) throws Exception {
+	    if (Log.isTraceEnabled()) {
+		Log.trace("executing " + task.type + " task for client "
+			+ authToken);
+	    }
 	    switch (task.type) {
 
-		case SEND_DELETE_FILE: {
+		case DELETE_REMOTE_FILE: {
 		    FileInstance file = (FileInstance) task.object;
 		    client.deleteRemoteFile(manager.dir.paths.relativeFilePath(
 			    file.getPath()));
 		    break;
 		}
 
-		case SEND_UPDATE_FILE: {
+		case UPDATE_REMOTE_FILE: {
 		    FileInstance file = (FileInstance) task.object;
 		    client.updateRemoteFile(manager.dir.paths.
 			    relativeFilePath(file.getPath()), file.getPath());
 		    break;
 		}
 
-		case SEND_CHECK_FILE: {
+		case CHECK_FILE: {
 		    final String file = (String) task.object;
 		    final byte[] md5 = manager.dir.getCheckSum(file);
 		    if (md5 == null) {
-			System.out.println("fisierul " + file
-				+ " nu are checksum");
+			Log.info("could not find checksum for " + file);
 			break;
 		    }
 
@@ -823,36 +860,41 @@ public class CoreManager
 		    try {
 			mustUpdate = !client.checkRemoteFileMD5(
 				manager.dir.paths.relativeFilePath(file), md5);
-		    } catch (Exception ex) {
-			System.err.println("failed remote file check for "
+		    } catch (MustResetConnectionException ex) {
+			Log.debug("failed remote file check for "
 				+ file);
-			ex.printStackTrace(System.err);
+			break;
+		    } catch (Exception ex) {
+			Log.warn("failed remote file check for "
+				+ file);
 			break;
 		    }
 
 		    if (mustUpdate) {
 			client.updateRemoteFile(manager.dir.paths.
 				relativeFilePath(file), file);
-			addTask(new ClientTask(ClientTaskType.SEND_CHECK_FILE,
+			addTask(new ClientTask(ClientTaskType.CHECK_FILE,
 				file));
 		    }
 		    break;
 		}
 
 		case GLOBAL_CHECK: {
-		    System.out.println("global check for client " + authToken);
 		    final HashSet<String> files = manager.runtimeFilesForToken.
 			    get(authToken);
 		    if (files == null || files.isEmpty()) {
-			System.out.println("n-am nimic pentru tine, frate");
+			Log.debug("empty runtime file list for client "
+				+ authToken);
 			return;
 		    }
 		    for (String file : files) {
-			//System.out.println("checking file " + file);
+			if (Log.isTraceEnabled()) {
+			    Log.trace("checking file " + file + " for client "
+				    + authToken);
+			}
 			final byte[] md5 = manager.dir.getCheckSum(file);
 			if (md5 == null) {
-			    System.out.println("fisierul " + file
-				    + " nu are checksum");
+			    Log.info("could not find checksum for " + file);
 			    continue;
 			}
 
@@ -861,22 +903,24 @@ public class CoreManager
 			    mustUpdate = !client.checkRemoteFileMD5(
 				    manager.dir.paths.relativeFilePath(file),
 				    md5);
-			} catch (Exception ex) {
-			    System.err.println("failed remote file check for "
+			} catch (MustResetConnectionException ex) {
+			    Log.debug("failed remote file check for "
 				    + file);
-			    ex.printStackTrace(System.err);
-			    continue;
+			    break;
+			} catch (Exception ex) {
+			    Log.warn("failed remote file check for "
+				    + file);
+			    break;
 			}
 
 			if (mustUpdate) {
 			    client.updateRemoteFile(manager.dir.paths.
 				    relativeFilePath(file), file);
 			    addTask(new ClientTask(
-				    ClientTaskType.SEND_CHECK_FILE, file));
+				    ClientTaskType.CHECK_FILE, file));
 			}
 		    }
-		    System.out.println("finished global check for client "
-			    + authToken);
+		    Log.trace("finished global check for client " + authToken);
 		    break;
 		}
 	    }

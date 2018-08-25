@@ -1,5 +1,6 @@
 package andrei.dynamic.server.http;
 
+import andrei.dynamic.common.Log;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -7,8 +8,6 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URLDecoder;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -21,6 +20,9 @@ public abstract class View
 
     protected void respond404(final HttpExchange req) throws IOException {
 
+	if (Log.isDebugEnabled()){
+	    Log.debug("unknown or failed request to " + req.getRequestURI());
+	}
 	OutputStream out = req.getResponseBody();
 	String message = "ERROR - Resource not found";
 	req.sendResponseHeaders(404, message.length());

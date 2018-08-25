@@ -1,5 +1,6 @@
 package andrei.dynamic.server.http;
 
+import andrei.dynamic.common.Log;
 import andrei.dynamic.common.MessageFactory;
 import andrei.dynamic.server.CoreManager;
 import andrei.dynamic.server.ServerConfiguration;
@@ -85,6 +86,7 @@ public class UpdateView
 			}
 		    }
 
+		    Log.info("(web request) updating file-groups");
 		    final ServerConfiguration config = core.getConfig();
 		    if (idx > 0) {
 			if (clients.isEmpty() && files.isEmpty()) {
@@ -121,9 +123,7 @@ public class UpdateView
 
 		    }
 		} catch (Exception ex) {
-		    System.err.println("failed to update files: " + ex.
-			    getMessage());
-		    ex.printStackTrace(System.out);
+		    Log.warn("(web request) failed to update file groups", ex);
 		}
 		redirectTo("/files", req);
 
@@ -138,36 +138,40 @@ public class UpdateView
 		    int maxClientConnections = -1;
 		    int maxDepth = -1;
 		    int checkPeriod = -1;
+		    String logLevel = null;
 
 		    final List<String> query = parsePostRequestQuery(req);
 		    for (String entry : req.getRequestURI().getQuery().
 			    split("&")) {
 			final String[] pair = parsePair(entry);
-			int value = Integer.parseInt(pair[1]);
 
 			switch (pair[0]) {
 			    case "localControlPort":
-				localControlPort = value;
+				localControlPort = Integer.parseInt(pair[1]);
 				break;
 
 			    case "localDataPort":
-				localDataPort = value;
+				localDataPort = Integer.parseInt(pair[1]);
 				break;
 
 			    case "localHttpPort":
-				localHttpPort = value;
+				localHttpPort = Integer.parseInt(pair[1]);
 				break;
 
 			    case "maxClientConnections":
-				maxClientConnections = value;
+				maxClientConnections = Integer.parseInt(pair[1]);
 				break;
 
 			    case "maxDepth":
-				maxDepth = value;
+				maxDepth = Integer.parseInt(pair[1]);
 				break;
 
 			    case "checkPeriod":
-				checkPeriod = value;
+				checkPeriod = Integer.parseInt(pair[1]);
+				break;
+
+			    case "logLevel":
+				logLevel = pair[1];
 				break;
 			}
 		    }
@@ -194,12 +198,14 @@ public class UpdateView
 			    config.getFileSettings().setCheckPeriodMillis(
 				    checkPeriod);
 			}
+			if (logLevel != null) {
+			    config.setLogLevel(logLevel);
+			}
+			Log.info("(web request) updating configuration");
 			core.saveConfig();
 		    }
 		} catch (Exception ex) {
-		    System.err.println("failed to update configuration params: "
-			    + ex.getMessage());
-		    ex.printStackTrace(System.out);
+		    Log.warn("(web request) failed to update configuration", ex);
 		}
 		redirectTo("/params", req);
 

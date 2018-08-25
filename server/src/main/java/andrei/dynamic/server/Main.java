@@ -3,6 +3,7 @@ package andrei.dynamic.server;
 import andrei.dynamic.server.jaxb.XmlServerConfiguration;
 import andrei.dynamic.server.jaxb.XmlFileSettings;
 import andrei.dynamic.common.DirectoryManager;
+import andrei.dynamic.common.Log;
 import andrei.dynamic.common.ShutdownListener;
 import andrei.dynamic.common.ShutdownTask;
 import java.io.File;
@@ -18,10 +19,7 @@ import javax.xml.bind.Unmarshaller;
 public class Main
 	implements ShutdownListener {
 
-    private static final int DEFAULT_MAX_DEPTH = 5;
-
     private final DirectoryManager dir;
-    private Level logLevel;
     private final XmlServerConfiguration initialConfig;
     private CoreManager manager;
     private Thread shutdownHook;
@@ -37,15 +35,35 @@ public class Main
 	validateConfig();
 
 	final XmlFileSettings fileSettings = initialConfig.getFileSettings();
-	if (fileSettings.getMaxDirectoryDepth() == 0) {
-	    fileSettings.setMaxDirectoryDepth(DEFAULT_MAX_DEPTH);
+	if (initialConfig.getLogLocation() == null || initialConfig.getLogLocation().
+		isEmpty()) {
+	    initialConfig.setLogLevel("OFF");
+	    Log.setLevel(Level.OFF);
+	} else if (initialConfig.getLogLocation().toUpperCase().equals("CONSOLE")) {
+	    if (initialConfig.getLogLevel() == null || initialConfig.
+		    getLogLevel().isEmpty()) {
+		initialConfig.setLogLevel("INFO");
+	    }
+	    Log.setStdOutput();
+	    Log.setLevel(initialConfig.getLogLevel());
+	} else {
+	    if (initialConfig.getLogLevel() == null || initialConfig.
+		    getLogLevel().isEmpty()) {
+		initialConfig.setLogLevel("INFO");
+	    }
+	    try {
+		Log.setFile(initialConfig.getLogLocation());
+	    } catch (Exception ex) {
+		throw new Exception("failed setting log file: " + ex.
+			getMessage());
+	    }
+	    Log.setLevel(initialConfig.getLogLevel());
 	}
 
 	dir = new DirectoryManager(fileSettings.getRootDirectory(),
 		fileSettings.getCheckPeriodMillis(), fileSettings.
 		getMaxDirectoryDepth());
 
-	logLevel = null;
     }
 
     public static void main(final String[] args) {
@@ -91,9 +109,12 @@ public class Main
 
     public void start(final String configFilePath) throws Exception {
 
+	Log.info("Starting DynamicConfig Server implementation...");
 	final Thread mainThread = Thread.currentThread();
 	shutdownHook = new Thread(new ShutdownTask(this, mainThread));
 	Runtime.getRuntime().addShutdownHook(shutdownHook);
+
+	Log.info("initialized shutdown hook");
 
 	manager = new CoreManager(new ServerConfiguration(initialConfig),
 		configFilePath, dir);
@@ -105,21 +126,24 @@ public class Main
 	    throw ex;
 	    //TODO
 	}
+	Log.info("sucessfully started the server manager");
 
     }
 
     @Override
     public void onShutdown() {
-	System.out.println("shutdown signal");
+	Log.info("shutdown signal");
+
 	if (manager != null) {
+	    Log.info("stopping server manager");
 	    manager.stop();
 	}
 	try {
 	    Thread.sleep(7000);
 	} catch (InterruptedException ex) {
-	    System.out.println("interrupted");
+	    Log.info("interrupted");
 	}
-	//TODO log
+	Log.info("finished shutdown task");
     }
 
     private void validateConfig() throws Exception {
@@ -129,59 +153,61 @@ public class Main
 
 	if (initialConfig.getLocalControlPort() < 1 || initialConfig.
 		getLocalControlPort() > 65535) {
-	    throw new Exception("invalid control port number");
+	    throw new Exception("invalid localControlPort parameter value");
 	}
 
 	if (initialConfig.getLocalDataPort() < 1 || initialConfig.
 		getLocalDataPort() > 65535) {
-	    throw new Exception("invalid data port number");
+	    throw new Exception("invalid localDataPort parameter value");
 	}
 
 	if (initialConfig.getLocalHttpPort() < 1 || initialConfig.
 		getLocalHttpPort() > 65535) {
-	    throw new Exception("invalid data port number");
+	    throw new Exception("invalid localHttpPort parameter value");
 	}
 
 	if (initialConfig.getLocalControlPort() == initialConfig.
 		getLocalDataPort()) {
-	    throw new Exception("control and data port must be different");
+	    throw new Exception("control and data port values must be different");
 	}
 
 	if (initialConfig.getLocalControlPort() == initialConfig.
 		getLocalHttpPort()) {
-	    throw new Exception("control and http port must be different");
+	    throw new Exception("control and http port values must be different");
 	}
 
 	if (initialConfig.getLocalDataPort() == initialConfig.getLocalHttpPort()) {
-	    throw new Exception("data and http port must be different");
+	    throw new Exception("data and http port values must be different");
 	}
-	
-	if (initialConfig.getKey() == null || initialConfig.getKey().isEmpty()){
-	    throw new Exception("invalid key");
+
+	if (initialConfig.getKey() == null || initialConfig.getKey().isEmpty()) {
+	    throw new Exception("invalid key parameter value");
 	}
 
 	if (initialConfig.getFileSettings() == null) {
 	    throw new Exception(
-		    "could not extract file settings from server configuration");
+		    "could not extract fileSettings from server configuration");
 	}
 
 	if (initialConfig.getFileSettings().getGroups() == null) {
 	    throw new Exception(
-		    "could not extract file groups from server configuration");
+		    "no file-group elements found within file settings");
 	}
 
 	if (initialConfig.getFileSettings().getRootDirectory() == null
 		|| initialConfig.getFileSettings().getRootDirectory().isEmpty()) {
-	    throw new Exception("invalid root directory in server configuration");
+	    throw new Exception(
+		    "invalid rootDirectory attribute in file settings");
 	}
 
 	if (initialConfig.getFileSettings().getCheckPeriodMillis() < 0) {
-	    throw new Exception("invalid check period in server configuration");
+	    throw new Exception(
+		    "invalid checkPeriodMillis attribute value in file settings");
 	}
 
-	if (initialConfig.getFileSettings().getMaxDirectoryDepth() < 0) {
+	if (initialConfig.getFileSettings().getMaxDirectoryDepth() < 1) {
 	    throw new Exception(
-		    "invalid maximum directory depth in server configuration");
+		    "invalid maxDirectoryDepth attribute value in file settings");
 	}
     }
 

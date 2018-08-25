@@ -4,6 +4,7 @@ import andrei.dynamic.common.Address;
 import andrei.dynamic.common.DirectoryPathHelper;
 import andrei.dynamic.common.MessageFactory;
 import andrei.dynamic.common.MustResetConnectionException;
+import andrei.dynamic.common.Log;
 import java.io.EOFException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -16,7 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import javax.crypto.Cipher;
@@ -60,20 +61,29 @@ public class Client {
 
     public void start(boolean keepAlive) throws Exception {
 
-	System.out.println("opening new connection");
+	Log.info("server " + controlAddress);
 
 	while (keepWorking) {
 	    try {
 		initConnection();
 	    } catch (MustResetConnectionException ex) {
-		System.out.println("connection reset...");
-	    } catch (Exception ex) {
+		Log.fine("connection reset...");
+	    } catch (ClientException ex) {
+		Log.fine("connection failed: " + ex.getMessage());
 		if (!keepAlive) {
 		    throw new Exception("failed connecting to server");
 		}
-		System.out.println("reconnecting...");
+	    } catch (Exception ex) {
+		Log.fatal("encountered exception: " + ex.getMessage());
+		if (!keepAlive) {
+		    throw new Exception("failed connecting to server");
+		}
 	    }
-
+	    if (!keepWorking) {
+		break;
+	    }
+	    
+	    Log.fine("reconnecting...");
 	    Thread.sleep(3000);
 	}
 
@@ -81,29 +91,34 @@ public class Client {
 
     public void initConnection() throws Exception {
 
-	socket = new Socket(controlAddress.getHost(), controlAddress.getPort());
+	try {
+	    socket = new Socket(controlAddress.getHost(), controlAddress.
+		    getPort());
+
+	    if (!socket.isBound() || !socket.isConnected()) {
+		throw new SocketException("control socket not bound");
+	    }
+	} catch (Exception ex) {
+	    throw new ClientException(ex.getMessage());
+	}
 
 	try {
-	    if (!socket.isBound() || !socket.isConnected()) {
-		throw new SocketException(
-			"control socket not bound in server image");
-	    }
-
 	    try {
 		socket.setTcpNoDelay(true);
 	    } catch (Exception ex) {
-		System.err.println("could not disable nagle algorithm");
+		Log.warn("could not disable nagle algorithm");
 	    }
 	    try {
 		socket.setSoTimeout(5000);
 	    } catch (Exception e) {
-		System.err.println("could not enable socket reading timeout");
+		Log.warn("could not enable socket reading timeout");
 	    }
 
 	    out = getCipherOutputStream(socket.getOutputStream());
 	    in = getCipherInputStream(socket.getInputStream());
 
-	    System.out.println("\nconnected with token " + authToken);
+	    Log.fine("connected to " + controlAddress + " using token "
+		    + authToken);
 
 	    while (keepWorking) {
 
@@ -115,25 +130,23 @@ public class Client {
 
 		    switch (message.getType()) {
 			case CHECK_FILE_MESSAGE:
+			    Log.trace("checking file " + new String(message.
+				    getContent()).trim());
 			    sendCheckFileMessageResponse(new String(
 				    MessageFactory.trimPadding(message.
 					    getContent())));
 			    break;
 			case UPDATE_FILE_MESSAGE:
-			    System.out.println("updating " + new String(message.
+			    Log.debug("updating file " + new String(message.
 				    getContent()).trim());
 			    downloadFile(new String(MessageFactory.trimPadding(
 				    message.getContent())));
-			    System.out.println("updated " + new String(message.
-				    getContent()).trim());
 			    break;
 			case DELETE_FILE_MESSAGE:
-			    System.out.println("deleting " + new String(message.
+			    Log.debug("deleting file " + new String(message.
 				    getContent()).trim());
 			    deleteFile(new String(MessageFactory.trimPadding(
 				    message.getContent())));
-			    System.out.println("deleted " + new String(message.
-				    getContent()).trim());
 			    break;
 			case TEST_MESSAGE:
 			    sendTestResponse();
@@ -142,17 +155,8 @@ public class Client {
 
 		} catch (EOFException ex) {
 		    //stop();
-		    System.out.println("reached EOF");
 		    throw new MustResetConnectionException();
 		} catch (Exception ex) {
-		    if (message != null) {
-			System.err.println("failed processing " + message.
-				getType() + ": " + ex.getMessage());
-		    } else {
-			System.err.println("failed processing: " + ex.
-				getMessage());
-		    }
-		    ex.printStackTrace(System.err);
 		    throw ex;
 		}
 
@@ -164,7 +168,7 @@ public class Client {
 		try {
 		    socket.close();
 		} catch (Exception ex) {
-		    System.err.println("failed to close tcp socket");
+		    Log.warn("failed closing tcp socket");
 		}
 	    }
 
@@ -231,7 +235,6 @@ public class Client {
 		type = in.read();
 	    } catch (SocketTimeoutException ex) {
 		//nimic
-		System.out.println("exceptie care nu trebe");
 	    }
 	}
 
@@ -268,14 +271,16 @@ public class Client {
 		break;
 	    } catch (Exception ex) {
 		//nimic
-		System.err.println("failed connecting to data channel");
+		Thread.sleep(500);
+		Log.fine("failed connecting to data channel");
 	    }
 	}
 
 	if (dataSocket == null || !dataSocket.isConnected()) {
-	    throw new SocketException("data socket not bound in server image");
+	    throw new SocketException("data transfer socket not bound");
 	}
 
+	Log.trace("starting data transfer");
 	FileOutputStream writer = new FileOutputStream(temp.toString());
 
 	CipherInputStream dataStream = getCipherInputStream(dataSocket.
@@ -308,26 +313,29 @@ public class Client {
 
 	    writer.flush();
 	    writer.close();
-	    try {
-		dataStream.close();
-	    } catch (Exception ex1) {
-		//nimic
-	    }
-
-	    try {
-		dataSocket.close();
-	    } catch (Exception ex1) {
-		//nimic
-	    }
 
 	    if (!Files.exists(original.getParent())) {
 		Files.createDirectories(original.getParent());
 	    }
 	    Files.deleteIfExists(original);
 	    //(new File(temp.toString())).renameTo(new File(original.toString()));
-	    Files.move(temp, original, REPLACE_EXISTING);
+	    Files.move(temp, original, StandardCopyOption.REPLACE_EXISTING);
+	    if (Log.isTraceEnabled()) {
+		Log.trace("sucessfully downloaded file " + original.
+			toAbsolutePath());
+	    }
 	} finally {
+	    try {
+		dataStream.close();
+	    } catch (Exception ex1) {
+		Log.debug("failed closing data stream");
+	    }
 
+	    try {
+		dataSocket.close();
+	    } catch (Exception ex1) {
+		Log.debug("failed closing data socket");
+	    }
 	}
     }
 

@@ -1,8 +1,8 @@
 package andrei.dynamic.server;
 
 import andrei.dynamic.common.MustResetConnectionException;
-import andrei.dynamic.server.jaxb.XmlFileGroup;
 import andrei.dynamic.common.Address;
+import andrei.dynamic.common.Log;
 import andrei.dynamic.common.MessageFactory;
 import andrei.dynamic.common.MessageType;
 import java.io.BufferedInputStream;
@@ -31,43 +31,42 @@ public class ConnectionWrapper
     private final Socket socket;
     private final Address clientControlAddress;
     private String authToken;
-    private CipherOutputStream out;
-    private CipherInputStream in;
-    private XmlFileGroup files;
+    private final CipherOutputStream out;
+    private final CipherInputStream in;
     private boolean closing;
 
     public ConnectionWrapper(final Socket socket, int localDataPort,
 	    final CoreManager manager) throws Exception {
 	this.manager = manager;
 	this.socket = socket;
+	clientControlAddress = new Address(socket.getInetAddress().
+		getHostAddress(),
+		socket.getPort());
 	try {
 	    socket.setTcpNoDelay(true);
 	} catch (Exception ex) {
 	    //nagle e on
-	    System.err.println("could not disable nagle algorithm");
+	    Log.warn("could not disable nagle algorithm on socket for client "
+		    + getStringAddress());
 	}
 	try {
 	    socket.setSoTimeout(SOCKET_TIMEOUT);
 	} catch (Exception e) {
-	    System.err.println("could not enable socket reading timeout");
+	    Log.warn("could not enable socket reading timeout for client "
+		    + getStringAddress());
 	}
 
 	out = getCipherOutputStream(socket.getOutputStream());
 	in = getCipherInputStream(socket.getInputStream());
 
-	clientControlAddress = new Address(socket.getInetAddress().
-		getHostAddress(),
-		socket.getPort());
 	closing = false;
-	System.out.println(clientControlAddress.getHost() + " and port "
-		+ clientControlAddress.getPort());
     }
 
     public Address getClientControlAddress() {
 	return clientControlAddress;
     }
 
-    public String getStringAddress() {
+    public final String getStringAddress() {
 	return clientControlAddress.toString();
     }
 
@@ -83,16 +82,12 @@ public class ConnectionWrapper
 	byte[] msg = MessageFactory.newDeletedFileMessage(relative);
 	out.write(msg);
 	out.flush();
-	System.out.println("written " + relative + " of length "
-		+ msg.length);
     }
 
     private void sendTransferPaddingMessage(int padding) throws Exception {
 	byte[] msg = MessageFactory.newTransferPaddingMessage(padding);
 	out.write(msg);
 	out.flush();
-	System.out.println("written " + padding + " of length "
-		+ msg.length);
     }
 
     private void sendUpdateFileMessage(final String relative) throws Exception {
@@ -100,8 +95,6 @@ public class ConnectionWrapper
 	byte[] msg = MessageFactory.newUpdatedFileMessage(relative);
 	out.write(msg);
 	out.flush();
-	System.out.println("written " + relative + " of length "
-		+ msg.length);
     }
 
     private void sendCheckFileMessage(final String relative) throws Exception {
@@ -125,7 +118,6 @@ public class ConnectionWrapper
 	while ((read = fileInput.read(buff)) != -1) {
 	    dataOutput.write(buff, 0, read);
 	    check = (check + read) % 16;
-	    System.out.println("scriu");
 	}
 	if (check != 0) {
 	    Arrays.fill(buff, 0, 16 - check, (byte) 0);
@@ -144,42 +136,53 @@ public class ConnectionWrapper
     }
 
     public void updateRemoteFile(final String relative, final String absolute) {
+	if (Log.isTraceEnabled()) {
+	    Log.trace("updating file " + relative + " on client " + authToken);
+	}
 	try {
 	    sendUpdateFileMessage(relative);
 	    startUploading(absolute);
 	} catch (Exception ex) {
-	    System.out.println(" n-a mers update pentru fisierul " + relative);
-	    ex.printStackTrace(System.out);
+	    if (Log.isDebugEnabled()) {
+		Log.debug("failed updating file " + relative + " on client "
+			+ authToken, ex);
+	    }
 	}
     }
 
     public void deleteRemoteFile(final String relative) {
+	if (Log.isTraceEnabled()) {
+	    Log.trace("deleting file " + relative + " on client " + authToken);
+	}
 	try {
 	    sendDeleteFileMessage(relative);
 	} catch (Exception ex) {
-	    System.out.println(" n-a mers delete pentru fisierul " + relative);
-	    ex.printStackTrace(System.out);
+	    if (Log.isDebugEnabled()) {
+		Log.debug("failed deleting file " + relative + " on client "
+			+ authToken, ex);
+	    }
 	}
     }
 
-    public String testConnection() throws MustResetConnectionException {
+    public String testConnection() throws Exception {
 	try {
 	    sendTestMessage();
 	} catch (Exception ex) {
-	    System.err.println("failed test connection");
-	    ex.printStackTrace(System.err);
-	    return null;
+	    throw new MustResetConnectionException("failed sending test message");
+	}
+	
+	int type;
+	try {
+	    type = in.read();
+	} catch (Exception ex) {
+	    throw new MustResetConnectionException(ex.getMessage());
 	}
 
-	try {
-	    if (in.read() != MessageType.TEST_MESSAGE_RSP.getCode()) {
-		throw new MustResetConnectionException();
-	    }
-	} catch (MustResetConnectionException ex) {
-	    throw ex;
-	} catch (Exception ex) {
-	    ex.printStackTrace(System.out);
-	    return null;
+	if (type == -1) {
+	    throw new MustResetConnectionException("connection closed");
+	}
+	if (type != MessageType.TEST_MESSAGE_RSP.getCode()) {
+	    throw new MustResetConnectionException("bad response");
 	}
 
 	int counter = 1;
@@ -190,7 +193,7 @@ public class ConnectionWrapper
 	    try {
 		counter += in.read(buff, counter - 1, dim - counter);
 	    } catch (Exception ex) {
-		throw new MustResetConnectionException();
+		throw new MustResetConnectionException(ex.getMessage());
 	    }
 	}
 
@@ -218,11 +221,13 @@ public class ConnectionWrapper
 	    return false;
 	}
 
-	/*System.out.println(DatatypeConverter.printHexBinary(MessageFactory.
-		trimPadding(Arrays.copyOfRange(buff,
-			MessageFactory.STD_MSG_DIM - 1, dim))) + " vs "
-		+ DatatypeConverter.printHexBinary(md5));*/
-
+	if (Log.isTraceEnabled()) {
+	    Log.trace(DatatypeConverter.printHexBinary(MessageFactory.
+		    trimPadding(Arrays.copyOfRange(buff,
+			    MessageFactory.STD_MSG_DIM - 1, dim)))
+		    + " local hash and " + DatatypeConverter.printHexBinary(md5)
+		    + " remote hash");
+	}
 	return Arrays.equals(MessageFactory.trimPadding(Arrays.copyOfRange(buff,
 		MessageFactory.STD_MSG_DIM - 1, dim)), md5);
     }
@@ -263,7 +268,7 @@ public class ConnectionWrapper
 	try {
 	    socket.close();
 	} catch (Exception ex) {
-	    System.err.println("failed closing client " + clientControlAddress);
+	    Log.fine("failed closing client " + clientControlAddress);
 	}
     }
 
@@ -305,6 +310,11 @@ public class ConnectionWrapper
     @Override
     public int compareTo(ConnectionWrapper other) {
 	return clientControlAddress.compareTo(other.clientControlAddress);
+    }
+
+    @Override
+    public String toString() {
+	return getStringAddress();
     }
 
 }

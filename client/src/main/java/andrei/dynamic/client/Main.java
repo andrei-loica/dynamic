@@ -3,8 +3,8 @@ package andrei.dynamic.client;
 import andrei.dynamic.common.Address;
 import andrei.dynamic.common.ShutdownTask;
 import andrei.dynamic.common.ShutdownListener;
-import andrei.dynamic.common.DirectoryManager;
 import andrei.dynamic.common.DirectoryPathHelper;
+import andrei.dynamic.common.Log;
 import java.io.File;
 import java.util.logging.Level;
 import javax.xml.bind.JAXBContext;
@@ -23,7 +23,6 @@ public class Main
     private final Address dataAddress;
     private final DirectoryPathHelper dir;
     private final boolean keepAlive;
-    private Level logLevel;
     private Client client;
     private Thread shutdownHook;
 
@@ -42,8 +41,32 @@ public class Main
 	dataAddress = new Address(initialConfig.getRemoteDataAddress(),
 		initialConfig.getRemoteDataPort());
 	keepAlive = initialConfig.getKeepAlive();
+	if (initialConfig.getLogLocation() == null || initialConfig.getLogLocation().
+		isEmpty()) {
+	    initialConfig.setLogLevel("OFF");
+	    Log.setLevel(Level.OFF);
+	} else if (initialConfig.getLogLocation().toUpperCase().equals("CONSOLE")) {
+	    if (initialConfig.getLogLevel() == null || initialConfig.
+		    getLogLevel().isEmpty()) {
+		initialConfig.setLogLevel("INFO");
+	    }
+	    System.out.println(initialConfig.getLogLevel());
+	    Log.setStdOutput();
+	    Log.setLevel(initialConfig.getLogLevel());
+	} else {
+	    if (initialConfig.getLogLevel() == null || initialConfig.
+		    getLogLevel().isEmpty()) {
+		initialConfig.setLogLevel("INFO");
+	    }
+	    try {
+		Log.setFile(initialConfig.getLogLocation());
+	    } catch (Exception ex) {
+		throw new Exception("failed setting log file: " + ex.
+			getMessage());
+	    }
+	    Log.setLevel(initialConfig.getLogLevel());
+	}
 
-	logLevel = null;
     }
 
     public static void main(final String[] args) {
@@ -82,15 +105,18 @@ public class Main
 	try {
 	    main.start();
 	} catch (Exception ex) {
-	    System.err.println("Failed starting the client: " + ex.getMessage());
+	    Log.fatal("Failed starting the client: " + ex.getMessage());
 	}
     }
 
     public void start() throws Exception {
 
+	Log.info("Starting DynamicConfig Client implementation...");
 	final Thread mainThread = Thread.currentThread();
 	shutdownHook = new Thread(new ShutdownTask(this, mainThread));
 	Runtime.getRuntime().addShutdownHook(shutdownHook);
+	
+	Log.info("initialized shutdown hook");
 
 	client = new Client(controlAddress, dataAddress, dir,
 		initialConfig.getClientAuthToken(), initialConfig.getKey());
@@ -100,7 +126,6 @@ public class Main
 	} catch (Exception ex) {
 	    Runtime.getRuntime().removeShutdownHook(shutdownHook);
 	    throw ex;
-	    //TODO
 	}
 
     }
@@ -152,16 +177,17 @@ public class Main
 
     @Override
     public void onShutdown() {
-	System.out.println("shutdown signal");
+	Log.info("shutdown signal");
 	if (client != null) {
+	    Log.info("stopping client");
 	    client.stop();
 	}
 	try {
 	    Thread.sleep(7000);
 	} catch (InterruptedException ex) {
-	    System.out.println("interrupted");
+	    Log.info("interrupted");
 	}
-	//TODO log
+	Log.info("finished shutdown task");
     }
 
 }

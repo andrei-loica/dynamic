@@ -1,5 +1,6 @@
 package andrei.dynamic.server.http;
 
+import andrei.dynamic.common.Log;
 import andrei.dynamic.common.MessageFactory;
 import andrei.dynamic.server.CoreManager;
 import com.sun.net.httpserver.HttpExchange;
@@ -31,7 +32,7 @@ public class ActionsView
 
 	switch (path) {
 	    case "/disconnect":
-	    case "/disconnect/":{
+	    case "/disconnect/": {
 		final String[] pair = parsePair(req.getRequestURI().getQuery());
 
 		if (pair == null || !"client".equals(pair[0]) || pair[1].
@@ -39,20 +40,23 @@ public class ActionsView
 		    respond404(req);
 		    return;
 		}
+
+		Log.info("(web request) closing client " + pair[1]);
 
 		try {
 		    core.closeClient(pair[1]);
 		} catch (Exception ex) {
-		    System.err.println("failed closing client " + pair[1]);
+		    Log.warn("(web request) failed closing client " + pair[1],
+			    ex);
 		    //TODO eroare
 		}
-		
+
 		redirectTo("/connections", req);
 		break;
 	    }
-	    
+
 	    case "/block":
-	    case "/block/":{
+	    case "/block/": {
 		final String[] pair = parsePair(req.getRequestURI().getQuery());
 
 		if (pair == null || !"client".equals(pair[0]) || pair[1].
@@ -60,20 +64,22 @@ public class ActionsView
 		    respond404(req);
 		    return;
 		}
+		
+		Log.info("(web request) blocking client " + pair[1]);
 
 		try {
 		    core.blockClient(pair[1]);
 		} catch (Exception ex) {
-		    System.err.println("failed blocking client " + pair[1]);
-		    //TODO eroare
+		    Log.warn("(web request) failed blocking client " + pair[1],
+			    ex);
 		}
-		
+
 		redirectTo("/connections", req);
 		break;
 	    }
-	    
+
 	    case "/unblock":
-	    case "/unblock/":{
+	    case "/unblock/": {
 		final String[] pair = parsePair(req.getRequestURI().getQuery());
 
 		if (pair == null || !"client".equals(pair[0]) || pair[1].
@@ -81,20 +87,23 @@ public class ActionsView
 		    respond404(req);
 		    return;
 		}
+		
+		Log.info("(web request) unblocking client " + pair[1]);
 
 		try {
 		    core.unblockClient(pair[1]);
 		} catch (Exception ex) {
-		    System.err.println("failed unblocking client " + pair[1]);
-		    //TODO eroare
+		    Log.
+			    warn("(web request) failed unblocking client "
+				    + pair[1], ex);
 		}
-		
+
 		redirectTo("/connections", req);
 		break;
 	    }
-	    
+
 	    case "/push":
-	    case "/push/":{
+	    case "/push/": {
 		final String[] pair = parsePair(req.getRequestURI().getQuery());
 
 		if (pair == null || !"client".equals(pair[0]) || pair[1].
@@ -102,14 +111,18 @@ public class ActionsView
 		    respond404(req);
 		    return;
 		}
+		
+		Log.info("(web request) pushing to client " + pair[1]);
 
 		try {
 		    core.pushClient(pair[1]);
 		} catch (Exception ex) {
-		    System.err.println("failed pushing to client " + pair[1]);
-		    //TODO eroare
+		    Log.
+			    warn("(web request) failed pushing to client "
+				    + pair[1],
+				    ex);
 		}
-		
+
 		redirectTo("/connections", req);
 		break;
 	    }

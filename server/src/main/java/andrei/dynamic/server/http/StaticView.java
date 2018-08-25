@@ -1,5 +1,6 @@
 package andrei.dynamic.server.http;
 
+import andrei.dynamic.common.Log;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -36,8 +37,7 @@ public class StaticView
 		    file.close();
 		    req.close();
 		} catch (Exception ex) {
-		    System.err.println("failed to upload css file");
-		    //ex.printStackTrace(System.err);
+		    Log.debug("failed to upload css file", ex);
 		    respond404(req);
 		}
 
@@ -61,8 +61,7 @@ public class StaticView
 		    file.close();
 		    req.close();
 		} catch (Exception ex) {
-		    System.err.println("failed to upload javascript file");
-		    ex.printStackTrace(System.err);
+		    Log.debug("failed to upload javascript file", ex);
 		    respond404(req);
 		}
 

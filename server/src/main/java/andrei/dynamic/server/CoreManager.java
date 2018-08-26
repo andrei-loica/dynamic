@@ -877,104 +877,115 @@ public class CoreManager
 	}
 
 	private void executeTask(final ClientTask task) throws Exception {
-	    if (Log.isTraceEnabled()) {
-		Log.trace("executing " + task.type + " task for client "
-			+ authToken);
-	    }
-	    switch (task.type) {
-
-		case DELETE_REMOTE_FILE: {
-		    final FileInstance file = (FileInstance) task.object;
-		    client.deleteRemoteFile(manager.dir.paths.relativeFilePath(
-			    file.getPath()));
-		    break;
+	    try {
+		client.setUpdating(true);
+		if (Log.isTraceEnabled()) {
+		    Log.trace("executing " + task.type + " task for client "
+			    + authToken);
 		}
+		switch (task.type) {
 
-		case UPDATE_REMOTE_FILE: {
-		    final FileInstance file = (FileInstance) task.object;
-		    client.updateRemoteFile(manager.dir.paths.
-			    relativeFilePath(file.getPath()), file.getPath());
-		    break;
-		}
-
-		case CHECK_FILE: {
-		    final String file = (String) task.object;
-		    final byte[] md5 = manager.dir.getCheckSum(file);
-		    if (md5 == null) {
-			Log.info("could not find checksum for " + file);
+		    case DELETE_REMOTE_FILE: {
+			final FileInstance file = (FileInstance) task.object;
+			client.deleteRemoteFile(manager.dir.paths.
+				relativeFilePath(
+					file.getPath()));
 			break;
 		    }
 
-		    boolean mustUpdate;
-		    try {
-			mustUpdate = !client.checkRemoteFileMD5(
-				manager.dir.paths.relativeFilePath(file), md5);
-		    } catch (MustResetConnectionException ex) {
-			Log.debug("failed remote file check for "
-				+ file);
-			break;
-		    } catch (Exception ex) {
-			Log.warn("failed remote file check for "
-				+ file);
-			break;
-		    }
-
-		    if (mustUpdate) {
+		    case UPDATE_REMOTE_FILE: {
+			final FileInstance file = (FileInstance) task.object;
 			client.updateRemoteFile(manager.dir.paths.
-				relativeFilePath(file), file);
-			addTask(new ClientTask(ClientTaskType.CHECK_FILE,
-				file));
+				relativeFilePath(file.getPath()), file.getPath());
+			break;
 		    }
-		    break;
-		}
 
-		case GLOBAL_CHECK: {
-		    final HashSet<String> files = manager.runtimeFilesForToken.
-			    get(authToken);
-		    synchronized (files) {
-			if (files == null || files.isEmpty()) {
-			    Log.debug("empty runtime file list for client "
-				    + authToken);
-			    return;
+		    case CHECK_FILE: {
+			final String file = (String) task.object;
+			final byte[] md5 = manager.dir.getCheckSum(file);
+			if (md5 == null) {
+			    Log.info("could not find checksum for " + file);
+			    break;
 			}
-			for (String file : files) {
-			    if (Log.isTraceEnabled()) {
-				Log.trace("checking file " + file
-					+ " for client "
+
+			boolean mustUpdate;
+			try {
+			    mustUpdate = !client.checkRemoteFileMD5(
+				    manager.dir.paths.relativeFilePath(file),
+				    md5);
+			} catch (MustResetConnectionException ex) {
+			    Log.debug("failed remote file check for "
+				    + file);
+			    break;
+			} catch (Exception ex) {
+			    Log.warn("failed remote file check for "
+				    + file);
+			    break;
+			}
+
+			if (mustUpdate) {
+			    client.updateRemoteFile(manager.dir.paths.
+				    relativeFilePath(file), file);
+			    addTask(new ClientTask(ClientTaskType.CHECK_FILE,
+				    file));
+			}
+			break;
+		    }
+
+		    case GLOBAL_CHECK: {
+			final HashSet<String> files
+				= manager.runtimeFilesForToken.
+					get(authToken);
+			synchronized (files) {
+			    if (files == null || files.isEmpty()) {
+				Log.debug("empty runtime file list for client "
 					+ authToken);
+				return;
 			    }
-			    final byte[] md5 = manager.dir.getCheckSum(file);
-			    if (md5 == null) {
-				Log.info("could not find checksum for " + file);
-				continue;
-			    }
+			    for (String file : files) {
+				if (Log.isTraceEnabled()) {
+				    Log.trace("checking file " + file
+					    + " for client "
+					    + authToken);
+				}
+				final byte[] md5 = manager.dir.getCheckSum(file);
+				if (md5 == null) {
+				    Log.info("could not find checksum for "
+					    + file);
+				    continue;
+				}
 
-			    boolean mustUpdate;
-			    try {
-				mustUpdate = !client.checkRemoteFileMD5(
-					manager.dir.paths.relativeFilePath(file),
-					md5);
-			    } catch (MustResetConnectionException ex) {
-				Log.debug("failed remote file check for "
-					+ file);
-				break;
-			    } catch (Exception ex) {
-				Log.warn("failed remote file check for "
-					+ file);
-				break;
-			    }
+				boolean mustUpdate;
+				try {
+				    mustUpdate = !client.checkRemoteFileMD5(
+					    manager.dir.paths.relativeFilePath(
+						    file),
+					    md5);
+				} catch (MustResetConnectionException ex) {
+				    Log.debug("failed remote file check for "
+					    + file);
+				    break;
+				} catch (Exception ex) {
+				    Log.warn("failed remote file check for "
+					    + file);
+				    break;
+				}
 
-			    if (mustUpdate) {
-				client.updateRemoteFile(manager.dir.paths.
-					relativeFilePath(file), file);
-				addTask(new ClientTask(
-					ClientTaskType.CHECK_FILE, file));
+				if (mustUpdate) {
+				    client.updateRemoteFile(manager.dir.paths.
+					    relativeFilePath(file), file);
+				    addTask(new ClientTask(
+					    ClientTaskType.CHECK_FILE, file));
+				}
 			    }
 			}
+			Log.debug("finished global check for client "
+				+ authToken);
+			break;
 		    }
-		    Log.trace("finished global check for client " + authToken);
-		    break;
 		}
+	    } finally {
+		client.setUpdating(false);
 	    }
 	}
 

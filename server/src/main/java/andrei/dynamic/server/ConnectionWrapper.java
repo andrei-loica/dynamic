@@ -34,6 +34,7 @@ public class ConnectionWrapper
     private final CipherOutputStream out;
     private final CipherInputStream in;
     private boolean closing;
+    private boolean updating;
 
     public ConnectionWrapper(final Socket socket, final CoreManager manager)
 	    throws Exception {
@@ -67,6 +68,14 @@ public class ConnectionWrapper
 
     public final String getStringAddress() {
 	return clientControlAddress.toString();
+    }
+
+    public boolean isUpdating() {
+	return updating;
+    }
+
+    public void setUpdating(boolean updating) {
+	this.updating = updating;
     }
 
     public void setAuthToken(final String token) {

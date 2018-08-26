@@ -151,7 +151,7 @@ public class Main
 	}
 
 	if (initialConfig.getLocalPort() < 1 || initialConfig.
-		getServerControlPort() > 65535) {
+		getLocalPort() > 65535) {
 	    throw new Exception(
 		    "invalid localPort parameter in client configuration");
 	}

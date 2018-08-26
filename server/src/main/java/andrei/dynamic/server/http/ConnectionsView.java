@@ -90,6 +90,18 @@ public class ConnectionsView
 			+ "</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/block?client="
 			+ client.getAuthToken()
 			+ "\" onclick=\"return confirm('Confirm block action?')\">block</a></th></tr>";
+	    } else if (client.isUpdating()) {
+		content = content
+			+ "<tr><th><span class=\"updating\" title=\"Updating\"></span></th><th>"
+			+ client.getAuthToken() + "</th><th>" + client.
+			getStringAddress()
+			+ "</th><th class=\"aligned-cell\"><a href=\"/actions/push?client="
+			+ client.getAuthToken()
+			+ "\" onclick=\"return confirm('Confirm push action?')\">push</a></th><th class=\"aligned-cell\"><a href=\"/actions/disconnect?client="
+			+ client.getAuthToken()
+			+ "\" onclick=\"return confirm('Confirm disconnect action?')\">disconnect</a></th><th class=\"aligned-cell\"><a href=\"/actions/block?client="
+			+ client.getAuthToken()
+			+ "\" onclick=\"return confirm('Confirm block action?')\">block</a></th></tr>";
 	    } else {
 		content = content
 			+ "<tr><th><span class=\"connected\" title=\"Connected\"></span></th><th>"
@@ -111,13 +123,15 @@ public class ConnectionsView
 			+ "<tr><th><span class=\"blocked\" title=\"Blocked\"></span></th><th>"
 			+ client
 			+ "</th><th>N/A</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/unblock?client="
-			+ client + "\" onclick=\"return confirm('Confirm unblock action?')\">unblock</a></th></tr>";
+			+ client
+			+ "\" onclick=\"return confirm('Confirm unblock action?')\">unblock</a></th></tr>";
 	    } else {
 		content = content
 			+ "<tr><th><span class=\"offline\" title=\"Not connected\"></span></th><th>"
 			+ client
 			+ "</th><th>N/A</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/block?client="
-			+ client + "\" onclick=\"return confirm('Confirm block action?')\">block</a></th></tr>";
+			+ client
+			+ "\" onclick=\"return confirm('Confirm block action?')\">block</a></th></tr>";
 	    }
 	}
 
@@ -126,7 +140,8 @@ public class ConnectionsView
 		    + "<tr><th><span class=\"blocked\" title=\"Blocked and not configured\"></span></th><th>"
 		    + client
 		    + "</th><th>N/A</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/unblock?client="
-		    + client + "\" onclick=\"return confirm('Confirm unblock action?')\">unblock</a></th></tr>";
+		    + client
+		    + "\" onclick=\"return confirm('Confirm unblock action?')\">unblock</a></th></tr>";
 
 	}
 

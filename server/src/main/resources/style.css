@@ -253,6 +253,13 @@ select option[selected]{
 	background-color: gray;
 	display:inline-block;
 }
+.updating {
+	width: 15px;
+	height: 15px;
+	border-radius: 50%;
+	background-color: blue;
+	display:inline-block;
+}
 
 th {
     text-align: center;

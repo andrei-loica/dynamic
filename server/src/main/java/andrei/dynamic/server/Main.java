@@ -35,11 +35,13 @@ public class Main
 	validateConfig();
 
 	final XmlFileSettings fileSettings = initialConfig.getFileSettings();
-	if (initialConfig.getLogLocation() == null || initialConfig.getLogLocation().
+	if (initialConfig.getLogLocation() == null || initialConfig.
+		getLogLocation().
 		isEmpty()) {
 	    initialConfig.setLogLevel("OFF");
 	    Log.setLevel(Level.OFF);
-	} else if (initialConfig.getLogLocation().toUpperCase().equals("CONSOLE")) {
+	} else if (initialConfig.getLogLocation().toUpperCase().
+		equals("CONSOLE")) {
 	    if (initialConfig.getLogLevel() == null || initialConfig.
 		    getLogLevel().isEmpty()) {
 		initialConfig.setLogLevel("INFO");
@@ -52,10 +54,11 @@ public class Main
 		initialConfig.setLogLevel("INFO");
 	    }
 	    try {
-		Log.setFile(initialConfig.getLogLocation());
+		Log.setFile(initialConfig.getLogLocation(), initialConfig.
+			isLogAppend());
 	    } catch (Exception ex) {
-		throw new Exception("failed setting log file: " + ex.
-			getMessage());
+		throw new Exception("failed setting log file: " + ex.getClass()
+			+ " " + ex.getMessage());
 	    }
 	    Log.setLevel(initialConfig.getLogLevel());
 	}
@@ -67,7 +70,7 @@ public class Main
     }
 
     public static void main(final String[] args) {
-	if ((args == null)) { //TODO vezi daca faci logger
+	if ((args == null)) {
 	    System.err.println(
 		    "incorrect number of parameters; should give the server configuration file path");
 	    System.exit(1);
@@ -81,19 +84,17 @@ public class Main
 	    System.exit(1);
 	}
 
-	//start client
+	//start server
 	final Main main;
 
 	try {
 	    main = new Main(args[0]);
 	} catch (JAXBException ex) {
-	    //TODO
 	    System.err.println(
 		    "Initialization exception: could not load server configuration from given file path");
-	    ex.printStackTrace(System.err);
+	    //ex.printStackTrace(System.err);
 	    return;
 	} catch (Exception ex) {
-	    //TODO
 	    System.err.println("Initialization exception: " + ex.getMessage());
 	    //ex.printStackTrace(System.err);
 	    return;
@@ -103,7 +104,7 @@ public class Main
 	    main.start(args[0]);
 	} catch (Exception ex) {
 	    System.err.println("Failed starting the server: " + ex.getMessage());
-	    ex.printStackTrace(System.err);
+	    //ex.printStackTrace(System.err);
 	}
     }
 
@@ -123,8 +124,8 @@ public class Main
 	    manager.start();
 	} catch (Exception ex) {
 	    Runtime.getRuntime().removeShutdownHook(shutdownHook);
+	    Log.fatal("failed starting the server manager", ex);
 	    throw ex;
-	    //TODO
 	}
 	Log.info("sucessfully started the server manager");
 

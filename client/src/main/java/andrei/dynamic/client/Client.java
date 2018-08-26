@@ -10,6 +10,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
@@ -32,6 +33,8 @@ import javax.crypto.spec.SecretKeySpec;
  */
 public class Client {
 
+    private final String localAddress;
+    private final int localPort;
     private final Address controlAddress;
     private final Address dataAddress;
     private final String authToken;
@@ -43,13 +46,16 @@ public class Client {
     private final byte[] iv;
     private boolean keepWorking;
 
-    public Client(final Address controlAddress,
-	    final Address dataAddress, final DirectoryPathHelper dir,
-	    final String authToken, final String key) throws Exception {
+    public Client(final String localAddress, int localPort,
+	    final Address controlAddress, final Address dataAddress,
+	    final DirectoryPathHelper dir, final String authToken,
+	    final String key) throws Exception {
 	this.controlAddress = controlAddress;
 	this.dataAddress = dataAddress;
 	this.dir = dir;
 	this.authToken = authToken;
+	this.localAddress = localAddress;
+	this.localPort = localPort;
 
 	final MessageDigest digest = MessageDigest.getInstance("SHA-256");
 	final byte[] bytes = digest.digest(key.getBytes(StandardCharsets.UTF_8));
@@ -74,15 +80,23 @@ public class Client {
 		    throw new Exception("failed connecting to server");
 		}
 	    } catch (Exception ex) {
-		Log.fatal("encountered exception: " + ex.getMessage());
+		Log.fatal("encountered exception", ex);
 		if (!keepAlive) {
 		    throw new Exception("failed connecting to server");
+		}
+	    } finally {
+		if (socket != null) {
+		    try {
+			socket.close();
+		    } catch (Exception ex) {
+			Log.warn("failed closing tcp socket", ex);
+		    }
 		}
 	    }
 	    if (!keepWorking) {
 		break;
 	    }
-	    
+
 	    Log.fine("reconnecting...");
 	    Thread.sleep(3000);
 	}
@@ -92,13 +106,22 @@ public class Client {
     public void initConnection() throws Exception {
 
 	try {
-	    socket = new Socket(controlAddress.getHost(), controlAddress.
-		    getPort());
+	    socket = new Socket();
+	    socket.bind(new InetSocketAddress(localAddress, localPort));
+	    socket.connect(new InetSocketAddress(controlAddress.getHost(),
+		    controlAddress.getPort()), 1000);
 
 	    if (!socket.isBound() || !socket.isConnected()) {
 		throw new SocketException("control socket not bound");
 	    }
 	} catch (Exception ex) {
+	    if (socket != null) {
+		try {
+		    socket.close();
+		} catch (Exception ex2) {
+		    Log.warn("failed closing tcp socket", ex);
+		}
+	    }
 	    throw new ClientException(ex.getMessage());
 	}
 
@@ -117,8 +140,11 @@ public class Client {
 	    out = getCipherOutputStream(socket.getOutputStream());
 	    in = getCipherInputStream(socket.getInputStream());
 
-	    Log.fine("connected to " + controlAddress + " using token "
-		    + authToken);
+	    final Address runtimeLocalAddress = new Address(socket.
+		    getLocalAddress().toString(), socket.getLocalPort());
+
+	    Log.fine("connecting with address " + runtimeLocalAddress + " to "
+		    + controlAddress + " using token " + authToken);
 
 	    while (keepWorking) {
 
@@ -168,7 +194,7 @@ public class Client {
 		try {
 		    socket.close();
 		} catch (Exception ex) {
-		    Log.warn("failed closing tcp socket");
+		    Log.warn("failed closing tcp socket", ex);
 		}
 	    }
 

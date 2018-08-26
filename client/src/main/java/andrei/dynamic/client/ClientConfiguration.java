@@ -13,22 +13,25 @@ import javax.xml.bind.annotation.XmlRootElement;
 @XmlAccessorType(XmlAccessType.NONE)
 public class ClientConfiguration {
     @XmlElement
-    private String remoteControlAddress;
+    private String localAddress;
     
     @XmlElement
-    private int remoteControlPort;
+    private int localPort;
     
     @XmlElement
-    private String remoteDataAddress;
+    private String serverAddress;
     
     @XmlElement
-    private int remoteDataPort;
+    private int serverControlPort;
+    
+    @XmlElement
+    private int serverDataPort;
     
     @XmlElement
     private boolean keepAlive;
     
     @XmlElement
-    private String directoryPath;
+    private String rootDirectory;
     
     @XmlElement
     private String clientAuthToken;
@@ -41,38 +44,49 @@ public class ClientConfiguration {
     
     @XmlElement
     private String logLocation;
+    
+    @XmlElement
+    private boolean logAppend;
 
     
-    public String getRemoteControlAddress() {
-	return remoteControlAddress;
+    public String getLocalAddress() {
+	return localAddress;
     }
 
-    public void setRemoteControlAddress(String remoteControlAddress) {
-	this.remoteControlAddress = remoteControlAddress;
+    public void setLocalAddress(String localAddress) {
+	this.localAddress = localAddress;
     }
 
-    public int getRemoteControlPort() {
-	return remoteControlPort;
+    public int getLocalPort() {
+	return localPort;
     }
 
-    public void setRemoteControlPort(int remoteControlPort) {
-	this.remoteControlPort = remoteControlPort;
+    public void setLocalPort(int localPort) {
+	this.localPort = localPort;
+    }
+    
+    public String getServerAddress() {
+	return serverAddress;
     }
 
-    public String getRemoteDataAddress() {
-	return remoteDataAddress;
+    public void setServerAddress(String serverAddress) {
+	this.serverAddress = serverAddress;
     }
 
-    public void setRemoteDataAddress(String remoteDataAddress) {
-	this.remoteDataAddress = remoteDataAddress;
+    public int getServerControlPort() {
+	return serverControlPort;
     }
 
-    public int getRemoteDataPort() {
-	return remoteDataPort;
+    public void setServerControlPort(int serverControlPort) {
+	this.serverControlPort = serverControlPort;
     }
 
-    public void setRemoteDataPort(int remoteDataPort) {
-	this.remoteDataPort = remoteDataPort;
+    public int getServerDataPort() {
+	return serverDataPort;
+    }
+
+    public void setServerDataPort(int serverDataPort) {
+	this.serverDataPort = serverDataPort;
     }
 
     public boolean getKeepAlive() {
@@ -83,12 +97,12 @@ public class ClientConfiguration {
 	this.keepAlive = keepAlive;
     }
 
-    public String getDirectoryPath() {
-	return directoryPath;
+    public String getRootDirectory() {
+	return rootDirectory;
     }
 
-    public void setDirectoryPath(String directoryPath) {
-	this.directoryPath = directoryPath;
+    public void setRootDirectory(String rootDirectory) {
+	this.rootDirectory = rootDirectory;
     }
 
     public String getClientAuthToken() {
@@ -121,6 +135,14 @@ public class ClientConfiguration {
 
     public void setLogLocation(String logLocation) {
 	this.logLocation = logLocation;
+    }
+
+    public boolean isLogAppend() {
+	return logAppend;
+    }
+
+    public void setLogAppend(boolean logAppend) {
+	this.logAppend = logAppend;
     }
     
 }

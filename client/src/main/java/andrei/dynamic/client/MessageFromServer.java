@@ -1,6 +1,7 @@
 package andrei.dynamic.client;
 
 import andrei.dynamic.common.MessageType;
+import andrei.dynamic.common.MustResetConnectionException;
 import java.util.Arrays;
 
 /**
@@ -16,9 +17,13 @@ public class MessageFromServer {
 
     }
 
-    public MessageFromServer(int type, byte[] content) {
+    public MessageFromServer(int type, byte[] content) throws
+	    MustResetConnectionException {
 
-	this.type = MessageType.parseCode(type);
+	if ((this.type = MessageType.parseCode(type)) == null) {
+	    throw new MustResetConnectionException("unknown message type "
+		    + type);
+	}
 	this.content = content;
     }
 

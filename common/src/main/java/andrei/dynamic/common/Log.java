@@ -7,7 +7,6 @@ import java.util.logging.Formatter;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
-import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
 /**
@@ -83,8 +82,8 @@ public class Log {
 	return level;
     }
 
-    public static void setFile(final String logFile) throws Exception {
-	handler = new FileHandler(logFile, false);
+    public static void setFile(final String logFile, boolean append) throws Exception {
+	handler = new FileHandler(logFile, append);
 	handler.setFormatter(FORMATTER);
 	if (level != null) {
 	    handler.setLevel(level);

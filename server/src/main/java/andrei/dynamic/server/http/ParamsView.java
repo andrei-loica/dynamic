@@ -57,7 +57,7 @@ public class ParamsView
 		+ "\" min=\"0\"></div><div><select name=\"logLevel\"><option value=\"OFF\" title=\"Logging disabled\""
 		+ ((config.getLogLevel().equals("OFF")) ? "selected" : "")
 		+ ">OFF</option><option value=\"TRACE\" title=\"Log everything\""
-		+ ((config.getLogLevel().equals("TRACE")) ? "selected" : "") + ">TRACE</option><option value=\"DEBUG\" title=\"Log everything but success file operations\""
+		+ ((config.getLogLevel().equals("TRACE")) ? "selected" : "") + ">TRACE</option><option value=\"DEBUG\" title=\"Log everything except success file operations for each client\""
 		+ ((config.getLogLevel().equals("DEBUG")) ? "selected" : "") + ">DEBUG</option><option value=\"FINE\" title=\"Like DEBUG but no file related messages\""
 		+ ((config.getLogLevel().equals("FINE")) ? "selected" : "") + ">FINE</option><option value=\"INFO\" title=\"Like FINE but no client connection runtime related messages\""
 		+ ((config.getLogLevel().equals("INFO")) ? "selected" : "") + ">INFO</option><option value=\"WARNING\" title=\"Log only minor or fatal runtime problems\""

@@ -35,13 +35,12 @@ public class ConnectionWrapper
     private final CipherInputStream in;
     private boolean closing;
 
-    public ConnectionWrapper(final Socket socket, int localDataPort,
-	    final CoreManager manager) throws Exception {
+    public ConnectionWrapper(final Socket socket, final CoreManager manager)
+	    throws Exception {
 	this.manager = manager;
 	this.socket = socket;
-	clientControlAddress = new Address(socket.getInetAddress().
-		getHostAddress(),
-		socket.getPort());
+	clientControlAddress = new Address(socket.getRemoteSocketAddress().
+		toString(), socket.getPort());
 	try {
 	    socket.setTcpNoDelay(true);
 	} catch (Exception ex) {
@@ -170,7 +169,7 @@ public class ConnectionWrapper
 	} catch (Exception ex) {
 	    throw new MustResetConnectionException("failed sending test message");
 	}
-	
+
 	int type;
 	try {
 	    type = in.read();

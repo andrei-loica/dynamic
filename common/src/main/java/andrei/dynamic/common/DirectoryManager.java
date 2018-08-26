@@ -21,6 +21,7 @@ public final class DirectoryManager {
     private final HashMap<String, byte[]> checkSums;
     private Worker worker;
     private State state;
+    private final Object lock;
 
     public final DirectoryPathHelper paths;
 
@@ -30,6 +31,7 @@ public final class DirectoryManager {
 	this.checkPeriod = checkPeriod;
 	this.maxDepth = maxDepth;
 	state = State.NOT_INITIALIZED;
+	lock = new Object();
 
 	try {
 	    root = new File(dirPath);
@@ -64,11 +66,11 @@ public final class DirectoryManager {
 
     }
 
-    public synchronized int getCheckPeriod() {
+    public int getCheckPeriod() {
 	return checkPeriod;
     }
 
-    public synchronized void setCheckPeriod(int checkPeriod) {
+    public void setCheckPeriod(int checkPeriod) {
 	this.checkPeriod = checkPeriod;
     }
 
@@ -77,10 +79,12 @@ public final class DirectoryManager {
     }
 
     public void setMaxDepth(int maxDepth) {
-	this.maxDepth = maxDepth;
+	synchronized (lock) {
+	    this.maxDepth = maxDepth;
+	}
     }
 
-    public synchronized boolean isWorking() {
+    public boolean isWorking() {
 	return state == State.REGISTERED_WORKING;
     }
 
@@ -124,82 +128,88 @@ public final class DirectoryManager {
 		getAbsolutePath(), relative));
     }
 
-    protected synchronized void refreshContentImage() throws Exception {
-	final DirectoryInstance newImage
-		= new DirectoryInstance(root, maxDepth, null); //le si sorteaza
+    protected void refreshContentImage() throws Exception {
 
 	final LinkedList<FileInstance> deleted = new LinkedList<>();
 	final LinkedList<FileInstance> created = new LinkedList<>();
 	final LinkedList<FileInstance> modified = new LinkedList<>();
 
-	final ArrayList<FileInstance> lastContent = lastImage.
-		getAllFiles(maxDepth);
-	final ArrayList<FileInstance> newContent = newImage.getAllFiles(
-		maxDepth);
+	synchronized (lock) {
+	    final DirectoryInstance newImage
+		    = new DirectoryInstance(root, maxDepth, null); //le si sorteaza
+	    final ArrayList<FileInstance> lastContent;
+	    final ArrayList<FileInstance> newContent;
+	    lastContent = lastImage.getAllFiles(maxDepth);
+	    newContent = newImage.getAllFiles(maxDepth);
 
-	int index = 0;
+	    int index = 0;
 
-	for (FileInstance oldFile : lastContent) {
-	    if (oldFile == null) {
-		continue;
-	    }
-	    if (index >= newContent.size()) {
-		deleted.add(oldFile);
-		checkSums.remove(paths.relativeFilePath(oldFile.getPath()));
-		continue;
-	    }
-	    FileInstance newFile = newContent.get(index);
-	    if (newFile == null) {
-		index++;
-		continue;
-	    }
-
-	    int compResult = oldFile.getPath().compareTo(newFile.getPath());
-	    if (compResult == 0) {
-		if (oldFile.getLastModifiedDate() != newFile.
-			getLastModifiedDate()) {
-		    checkSums.put(newFile.getPath(), getLocalFileMD5(newFile.
-			    getPath()));
-		    modified.add(newFile);
-		}
-		index++;
-	    } else if (compResult < 0) {
-		checkSums.remove(paths.relativeFilePath(oldFile.getPath()));
-		deleted.add(oldFile);
-	    } else {
-		while (compResult > 0) {
-		    checkSums.put(newFile.getPath(), getLocalFileMD5(newFile.
-			    getPath()));
-		    created.add(newFile);
-		    if (++index < newContent.size()) {
-			newFile = newContent.get(index);
-			compResult = oldFile.getPath().compareTo(newFile.
-				getPath());
-		    } else {
-			break;
-		    }
+	    for (FileInstance oldFile : lastContent) {
+		if (oldFile == null) {
+		    continue;
 		}
 		if (index >= newContent.size()) {
-		    // nimic
-		} else if (compResult != 0) {
 		    deleted.add(oldFile);
 		    checkSums.remove(paths.relativeFilePath(oldFile.getPath()));
-		} else {
+		    continue;
+		}
+		FileInstance newFile = newContent.get(index);
+		if (newFile == null) {
+		    index++;
+		    continue;
+		}
+
+		int compResult = oldFile.getPath().compareTo(newFile.getPath());
+		if (compResult == 0) {
 		    if (oldFile.getLastModifiedDate() != newFile.
 			    getLastModifiedDate()) {
 			checkSums.put(newFile.getPath(), getLocalFileMD5(
-				newFile.getPath()));
+				newFile.
+					getPath()));
 			modified.add(newFile);
 		    }
 		    index++;
+		} else if (compResult < 0) {
+		    checkSums.remove(paths.relativeFilePath(oldFile.getPath()));
+		    deleted.add(oldFile);
+		} else {
+		    while (compResult > 0) {
+			checkSums.put(newFile.getPath(), getLocalFileMD5(
+				newFile.
+					getPath()));
+			created.add(newFile);
+			if (++index < newContent.size()) {
+			    newFile = newContent.get(index);
+			    compResult = oldFile.getPath().compareTo(newFile.
+				    getPath());
+			} else {
+			    break;
+			}
+		    }
+		    if (index >= newContent.size()) {
+			// nimic
+		    } else if (compResult != 0) {
+			deleted.add(oldFile);
+			checkSums.remove(paths.relativeFilePath(oldFile.
+				getPath()));
+		    } else {
+			if (oldFile.getLastModifiedDate() != newFile.
+				getLastModifiedDate()) {
+			    checkSums.put(newFile.getPath(), getLocalFileMD5(
+				    newFile.getPath()));
+			    modified.add(newFile);
+			}
+			index++;
+		    }
 		}
 	    }
-	}
 
-	while (index < newContent.size()) {
-	    final FileInstance file = newContent.get(index++);
-	    checkSums.put(file.getPath(), getLocalFileMD5(file.getPath()));
-	    created.add(file);
+	    while (index < newContent.size()) {
+		final FileInstance file = newContent.get(index++);
+		checkSums.put(file.getPath(), getLocalFileMD5(file.getPath()));
+		created.add(file);
+	    }
+	    lastImage = newImage;
 	}
 
 	for (FileInstance file : deleted) {
@@ -213,11 +223,9 @@ public final class DirectoryManager {
 	for (FileInstance file : modified) {
 	    notifyModified(file);
 	}
-
-	lastImage = newImage;
     }
 
-    public void deregisterListener() {
+    public synchronized void deregisterListener() {
 
 	state = State.DEREGISTERED_WAITING_WORKER_STOP;
 	if (worker != null) {
@@ -226,8 +234,10 @@ public final class DirectoryManager {
 
     }
 
-    public synchronized byte[] getCheckSum(final String absolute) {
-	return checkSums.get(absolute);
+    public byte[] getCheckSum(final String absolute) {
+	synchronized (lock) {
+	    return checkSums.get(absolute);
+	}
     }
 
     @SuppressWarnings("empty-statement")
@@ -236,24 +246,29 @@ public final class DirectoryManager {
 	return paths.getLocalFileMD5(absolute);
     }
 
-    public synchronized void loadFiles() {
+    public void loadFiles() {
 
 	if (state != State.REGISTERED_NOT_WORKING && state
 		!= State.REGISTERED_WORKING) {
 	    throw new IllegalStateException("illegal loadFiles in state "
 		    + state);
 	}
-	ArrayList<FileInstance> files = lastImage.getAllFiles(maxDepth);
-	if (Log.isDebugEnabled()) {
-	    Log.debug("loading " + files.size() + " files from root directory");
-	}
+	ArrayList<FileInstance> files;
+	synchronized (lock) {
+	    files = lastImage.getAllFiles(maxDepth);
 
-	for (FileInstance file : files) {
-	    try {
-		checkSums.put(file.getPath(), getLocalFileMD5(file.getPath()));
-		notifyLoaded(file);
-	    } catch (Exception ex) {
-		Log.debug("failed to load file " + file);
+	    if (Log.isDebugEnabled()) {
+		Log.debug("loading " + files.size()
+			+ " files from root directory");
+	    }
+	    for (FileInstance file : files) {
+		try {
+		    checkSums.put(file.getPath(),
+			    getLocalFileMD5(file.getPath()));
+		    notifyLoaded(file);
+		} catch (Exception ex) {
+		    Log.debug("failed to load file " + file);
+		}
 	    }
 	}
 

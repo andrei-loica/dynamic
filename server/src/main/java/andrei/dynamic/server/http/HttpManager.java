@@ -15,33 +15,35 @@ public class HttpManager {
     private final int httpPort;
     private final HttpServer httpServer;
 
-    public HttpManager(final CoreManager core, int httpPort) throws
+    public HttpManager(final CoreManager core, final String httpAddress,
+	    int httpPort) throws
 	    Exception {
 	this.core = core;
 	this.httpPort = httpPort;
 
-	httpServer = HttpServer.create(new InetSocketAddress(httpPort), 0);
+	httpServer = HttpServer.create(new InetSocketAddress(httpAddress,
+		httpPort), 0);
     }
-    
-    public void start(){
+
+    public void start() {
 	httpServer.createContext("/", new ConnectionsView(core));
 	httpServer.createContext("/files", new FilesView(core));
 	httpServer.createContext("/params", new ParamsView(core));
 	httpServer.createContext("/actions/", new ActionsView(core));
 	httpServer.createContext("/update/", new UpdateView(core));
 	httpServer.createContext("/static/", new StaticView());
-	
+
 	httpServer.setExecutor(Executors.newCachedThreadPool());
 	httpServer.start();
     }
-    
-    public void stop(){
-	
+
+    public void stop() {
+
 	final Thread stopThread = new Thread(() -> {
 	    httpServer.stop(1);
 	    core.httpServerStopped();
 	});
-	
+
 	stopThread.start();
     }
 

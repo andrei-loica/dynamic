@@ -1,5 +1,6 @@
 package andrei.dynamic.server;
 
+import andrei.dynamic.common.Address;
 import andrei.dynamic.server.jaxb.XmlServerConfiguration;
 import andrei.dynamic.common.DirectoryChangesListener;
 import andrei.dynamic.common.DirectoryManager;
@@ -10,6 +11,7 @@ import andrei.dynamic.common.MustResetConnectionException;
 import andrei.dynamic.server.http.HttpManager;
 import andrei.dynamic.server.jaxb.XmlFileGroup;
 import java.io.File;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
@@ -85,12 +87,16 @@ public class CoreManager
 
     public void start() throws Exception {
 
-	httpManager = new HttpManager(this, config.getLocalHttpPort());
+	httpManager = new HttpManager(this, config.getLocalAddress(), config.
+		getLocalHttpPort());
 	httpManager.start();
 
 	connectionListener = new ConnectionListener(this, config.
-		getLocalControlPort());
-	dataServer = new ServerSocket(config.getLocalDataPort());
+		getLocalAddress(), config.getLocalControlPort());
+
+	dataServer = new ServerSocket();
+	dataServer.bind(new InetSocketAddress(config.getLocalAddress(), config.
+		getLocalDataPort()));
 	try {
 	    dataServer.setSoTimeout(2000);
 	} catch (Exception ex) {
@@ -115,7 +121,7 @@ public class CoreManager
     }
 
     @Override
-    public void onFileLoaded(FileInstance file) {
+    public synchronized void onFileLoaded(FileInstance file) {
 	try {
 	    final String localRelative = dir.paths.relativeFilePath(file.
 		    getPath());
@@ -150,7 +156,8 @@ public class CoreManager
     }
 
     @Override
-    public void onFileCreated(FileInstance file) {
+    @SuppressWarnings("NestedSynchronizedStatement")
+    public synchronized void onFileCreated(FileInstance file) {
 	try {
 	    final String localRelative = dir.paths.relativeFilePath(file.
 		    getPath());
@@ -169,22 +176,34 @@ public class CoreManager
 	    if (bestMatch.equals("")) {
 		return;
 	    }
-	    final HashSet<String> tokens = new HashSet();
+	    final HashSet<String> tokens = new HashSet(); //override
 	    runtimeTokensForFile.put(file.getPath(), tokens);
+	    int count = 0;
 	    for (String token : tokensForContent.get(bestMatch)) {
 		final ClientWorker worker = connectedTokensWithWorkers.
 			get(token);
 
 		if (worker != null) {
-		    worker.addTask(new ClientTask(
-			    ClientTaskType.UPDATE_REMOTE_FILE, file));
-		    worker.addTask(new ClientTask(
-			    ClientTaskType.CHECK_FILE, file.getPath()));
+		    if (worker.addTask(new ClientTask(
+			    ClientTaskType.UPDATE_REMOTE_FILE, file)) && worker.
+			    addTask(new ClientTask(
+				    ClientTaskType.CHECK_FILE, file.getPath()))) {
+			count++;
+		    } else if (Log.isTraceEnabled()) {
+			Log.debug("could not add update file " + file.
+				getPath() + " for token " + token);
+		    }
 		}
 		tokens.add(token);
 		HashSet<String> files = runtimeFilesForToken.get(token);
-		files.add(file.getPath());
+		synchronized (files) {
+		    files.add(file.getPath());
+		}
 
+	    }
+	    if (Log.isDebugEnabled()) {
+		Log.debug("sending update on " + count + " clients for file "
+			+ file.getPath());
 	    }
 	} catch (Exception ex) {
 	    Log.warn("failed to send update for file " + file.getPath(), ex);
@@ -192,24 +211,34 @@ public class CoreManager
     }
 
     @Override
-    public void onFileModified(FileInstance file) {
+    public synchronized void onFileModified(FileInstance file) {
 	try {
 	    HashSet<String> tokens = runtimeTokensForFile.get(file.getPath());
-	    if (tokens == null) {
+	    if (tokens == null || tokens.isEmpty()) {
 		Log.debug("modified file " + file.getPath()
-			+ " but no client listens");
+			+ " but no clients are listening");
 		return;
 	    }
+	    int count = 0;
 	    for (String token : tokens) {
 		final ClientWorker worker = connectedTokensWithWorkers.
 			get(token);
 
 		if (worker != null) {
-		    worker.addTask(new ClientTask(
-			    ClientTaskType.UPDATE_REMOTE_FILE, file));
-		    worker.addTask(new ClientTask(
-			    ClientTaskType.CHECK_FILE, file.getPath()));
+		    if (worker.addTask(new ClientTask(
+			    ClientTaskType.UPDATE_REMOTE_FILE, file)) && worker.
+			    addTask(new ClientTask(
+				    ClientTaskType.CHECK_FILE, file.getPath()))) {
+			count++;
+		    } else if (Log.isTraceEnabled()) {
+			Log.trace("could not add update file " + file.
+				getPath() + " for token " + token);
+		    }
 		}
+	    }
+	    if (Log.isDebugEnabled()) {
+		Log.debug("sending update on " + count + " clients for file "
+			+ file.getPath());
 	    }
 	} catch (Exception ex) {
 	    Log.warn("failed to send update for file " + file.getPath(), ex);
@@ -249,27 +278,40 @@ public class CoreManager
 	}
     }*/
     @Override
-    public void onFileDeleted(FileInstance file) {
+    @SuppressWarnings("NestedSynchronizedStatement")
+    public synchronized void onFileDeleted(FileInstance file) {
 	try {
 	    HashSet<String> tokens = runtimeTokensForFile.remove(file.getPath());
-	    if (tokens == null) {
-		Log.warn("deleted file " + file.getPath()
-			+ " but no client listens");
+	    if (tokens == null || tokens.isEmpty()) {
+		Log.debug("deleted file " + file.getPath()
+			+ " but no clients are listening");
 		return;
 	    }
+	    int count = 0;
 	    for (String token : tokens) {
 		final ClientWorker worker = connectedTokensWithWorkers.
 			get(token);
 
 		if (worker != null) {
-		    worker.addTask(new ClientTask(
-			    ClientTaskType.DELETE_REMOTE_FILE, file));
+		    if (worker.addTask(new ClientTask(
+			    ClientTaskType.DELETE_REMOTE_FILE, file))) {
+			count++;
+		    } else if (Log.isTraceEnabled()) {
+			Log.trace("could not add delete file " + file.
+				getPath() + " for token " + token);
+		    }
 		}
-		runtimeFilesForToken.get(token).remove(file.getPath());
+		final HashSet files = runtimeFilesForToken.get(token);
+		synchronized (files) {
+		    files.remove(file.getPath());
+		}
+	    }
+	    if (Log.isDebugEnabled()) {
+		Log.debug("notifying deletion on " + count + " client for file "
+			+ file.getPath());
 	    }
 	} catch (Exception ex) {
-	    Log.warn("failed to notify deletion for file " + file.getPath()
-		    + ": " + ex.getMessage());
+	    Log.warn("failed to notify deletion for file " + file.getPath(), ex);
 	}
     }
 
@@ -296,7 +338,7 @@ public class CoreManager
 	    Log.fatal("connection listener unexpectedly stopped");
 	    try {
 		connectionListener = new ConnectionListener(this, config.
-			getLocalControlPort());
+			getLocalAddress(), config.getLocalControlPort());
 		connectionListener.start();
 	    } catch (Exception ex) {
 		Log.fatal("failed restarting connection listener", ex);
@@ -312,7 +354,8 @@ public class CoreManager
 	} else {
 	    Log.fatal("http server unexpectedly stopped");
 	    try {
-		httpManager = new HttpManager(this, config.getLocalHttpPort());
+		httpManager = new HttpManager(this, config.getLocalAddress(),
+			config.getLocalHttpPort());
 		httpManager.start();
 	    } catch (Exception ex) {
 		Log.fatal("failed to restart http server", ex);
@@ -369,17 +412,16 @@ public class CoreManager
 
     private synchronized void incomingConnection(final Socket client) {
 
-	Log.fine("incoming connection from " + client.getInetAddress());
+	Log.fine("incoming connection from " + client.getRemoteSocketAddress());
 	ConnectionWrapper clientWrapper;
 	ClientWorker clientWorker;
 	try {
-	    clientWrapper = new ConnectionWrapper(client, config.
-		    getLocalDataPort(), this);
+	    clientWrapper = new ConnectionWrapper(client, this);
 	    clientWorker = new ClientWorker(clientWrapper, this);
 	} catch (Exception ex) {
 	    //TODO failed to attach wrapper
 	    Log.warn("failed to attach client wrapper for incoming connection "
-		    + client.getInetAddress(), ex);
+		    + client.getRemoteSocketAddress(), ex);
 	    return;
 	}
 
@@ -390,7 +432,7 @@ public class CoreManager
 		clientWorkers.add(clientWorker);
 		clientWorker.start();
 	    } else {
-		Log.fine("refused connection " + client.getInetAddress()
+		Log.fine("refused connection " + client.getRemoteSocketAddress()
 			+ " because maximum connections reached");
 		try {
 		    client.close();
@@ -593,7 +635,7 @@ public class CoreManager
     public void pushClient(final String token) {
 	if (!connectedTokensWithWorkers.get(token).addTask(new ClientTask(
 		ClientTaskType.GLOBAL_CHECK, null))) {
-	    Log.warn("web request: push failed for " + token);
+	    Log.warn("(web request) push failed for " + token);
 	}
     }
 
@@ -603,14 +645,15 @@ public class CoreManager
 
 	private final CoreManager parent;
 	private final ServerSocket serverSocket;
+	private Address listenerAddress;
 	private boolean isActive;
 
-	public ConnectionListener(final CoreManager parent, int port)
-		throws
-		Exception {
+	public ConnectionListener(final CoreManager parent, final String address,
+		int port) throws Exception {
 	    this.parent = parent;
 	    isActive = false;
-	    serverSocket = new ServerSocket(port);
+	    serverSocket = new ServerSocket();
+	    serverSocket.bind(new InetSocketAddress(address, port));
 	    try {
 		serverSocket.setSoTimeout(4000);
 	    } catch (Exception ex) {
@@ -626,6 +669,11 @@ public class CoreManager
 
 	@Override
 	public void run() {
+
+	    listenerAddress = new Address(serverSocket.getLocalSocketAddress().
+		    toString(), serverSocket.getLocalPort());
+	    Log.info("listening to address " + listenerAddress);
+
 	    while (isActive) {
 
 		Socket clientConnection = null;
@@ -770,6 +818,7 @@ public class CoreManager
 		} catch (Exception ex) {
 		    Log.warn("encountered exception while working for client "
 			    + client, ex);
+		    //ex.printStackTrace(System.err);
 		}
 	    }
 
@@ -835,14 +884,14 @@ public class CoreManager
 	    switch (task.type) {
 
 		case DELETE_REMOTE_FILE: {
-		    FileInstance file = (FileInstance) task.object;
+		    final FileInstance file = (FileInstance) task.object;
 		    client.deleteRemoteFile(manager.dir.paths.relativeFilePath(
 			    file.getPath()));
 		    break;
 		}
 
 		case UPDATE_REMOTE_FILE: {
-		    FileInstance file = (FileInstance) task.object;
+		    final FileInstance file = (FileInstance) task.object;
 		    client.updateRemoteFile(manager.dir.paths.
 			    relativeFilePath(file.getPath()), file.getPath());
 		    break;
@@ -882,42 +931,45 @@ public class CoreManager
 		case GLOBAL_CHECK: {
 		    final HashSet<String> files = manager.runtimeFilesForToken.
 			    get(authToken);
-		    if (files == null || files.isEmpty()) {
-			Log.debug("empty runtime file list for client "
-				+ authToken);
-			return;
-		    }
-		    for (String file : files) {
-			if (Log.isTraceEnabled()) {
-			    Log.trace("checking file " + file + " for client "
+		    synchronized (files) {
+			if (files == null || files.isEmpty()) {
+			    Log.debug("empty runtime file list for client "
 				    + authToken);
+			    return;
 			}
-			final byte[] md5 = manager.dir.getCheckSum(file);
-			if (md5 == null) {
-			    Log.info("could not find checksum for " + file);
-			    continue;
-			}
+			for (String file : files) {
+			    if (Log.isTraceEnabled()) {
+				Log.trace("checking file " + file
+					+ " for client "
+					+ authToken);
+			    }
+			    final byte[] md5 = manager.dir.getCheckSum(file);
+			    if (md5 == null) {
+				Log.info("could not find checksum for " + file);
+				continue;
+			    }
 
-			boolean mustUpdate;
-			try {
-			    mustUpdate = !client.checkRemoteFileMD5(
-				    manager.dir.paths.relativeFilePath(file),
-				    md5);
-			} catch (MustResetConnectionException ex) {
-			    Log.debug("failed remote file check for "
-				    + file);
-			    break;
-			} catch (Exception ex) {
-			    Log.warn("failed remote file check for "
-				    + file);
-			    break;
-			}
+			    boolean mustUpdate;
+			    try {
+				mustUpdate = !client.checkRemoteFileMD5(
+					manager.dir.paths.relativeFilePath(file),
+					md5);
+			    } catch (MustResetConnectionException ex) {
+				Log.debug("failed remote file check for "
+					+ file);
+				break;
+			    } catch (Exception ex) {
+				Log.warn("failed remote file check for "
+					+ file);
+				break;
+			    }
 
-			if (mustUpdate) {
-			    client.updateRemoteFile(manager.dir.paths.
-				    relativeFilePath(file), file);
-			    addTask(new ClientTask(
-				    ClientTaskType.CHECK_FILE, file));
+			    if (mustUpdate) {
+				client.updateRemoteFile(manager.dir.paths.
+					relativeFilePath(file), file);
+				addTask(new ClientTask(
+					ClientTaskType.CHECK_FILE, file));
+			    }
 			}
 		    }
 		    Log.trace("finished global check for client " + authToken);

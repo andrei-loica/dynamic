@@ -6,30 +6,45 @@ import java.util.Objects;
  *
  * @author Andrei
  */
-public class Address implements Comparable<Address>{
-    
+public class Address
+	implements Comparable<Address> {
+
     private final String host;
     private final int port;
-    
+
     public Address(final String host, int portValue) {
 	if (host == null) {
 	    throw new NullPointerException("null address value");
 	}
-	
-	this.host = host;
+
 	port = portValue;
+	if (host.endsWith(":" + port)) {
+	    if (host.charAt(0) == '/' || host.charAt(0) == '\\') {
+		this.host = host.substring(1, host.length() - (":" + port).
+			length());
+	    } else {
+		this.host = host.substring(0, host.length() - (":" + port).
+			length());
+	    }
+	} else {
+	    if (host.charAt(0) == '/' || host.charAt(0) == '\\') {
+		this.host = host.substring(1);
+	    } else {
+		this.host = host;
+	    }
+	}
     }
-    
+
     public String getHost() {
 	return host;
     }
-    
+
     public int getPort() {
 	return port;
     }
-    
+
     @Override
-    public String toString(){
+    public String toString() {
 	return host + ":" + port;
     }
 
@@ -61,41 +76,41 @@ public class Address implements Comparable<Address>{
 	}
 	return true;
     }
-    
+
     @Override
-    public int compareTo(Address other){
+    public int compareTo(Address other) {
 	return toString().compareTo(other.toString());
     }
-    
+
     public static Address parseAddress(final String entry) throws Exception {
-	
+
 	if (entry.matches("\\A(25[0-5]|2[0-4][0-9]|[01]?[0-9]{0,2})\\."
 		+ "(25[0-5]|2[0-4][0-9]|[01]?[0-9]{0,2})\\."
 		+ "(25[0-5]|2[0-4][0-9]|[01]?[0-9]{0,2})\\."
 		+ "(25[0-5]|2[0-4][0-9]|[01]?[0-9]{0,2})\\z") || entry.matches(
 			"\\Alocalhost\\z")) {
-	    
+
 	    throw new Exception("missing port number");
 	}
-	
+
 	if (!entry.matches(
 		"\\A([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}):"
 		+ "([0-9]{1,5})\\z") && !entry.matches(
 			"\\Alocalhost:([0-9]{1,5})\\z")) {
-	    
+
 	    throw new Exception("invalid address format");
 	}
-	
+
 	if (!entry.matches("\\A(25[0-5]|2[0-4][0-9]|[01]?[0-9]{0,2})\\."
 		+ "(25[0-5]|2[0-4][0-9]|[01]?[0-9]{0,2})\\."
 		+ "(25[0-5]|2[0-4][0-9]|[01]?[0-9]{0,2})\\."
 		+ "(25[0-5]|2[0-4][0-9]|[01]?[0-9]{0,2}):"
 		+ "([0-9]{1,5})\\z") && !entry.matches(
 			"\\Alocalhost:([0-9]{1,5})\\z")) {
-	    
+
 	    throw new Exception("invalid host");
 	}
-	
+
 	int colonIndex = entry.indexOf(':');
 	final String host = entry.substring(0, colonIndex);
 	final int portNumber;
@@ -104,11 +119,11 @@ public class Address implements Comparable<Address>{
 	} catch (Exception ex) {
 	    throw new Exception("invalid port value");
 	}
-	
+
 	if (portNumber > 65535 || portNumber < 0) {
 	    throw new Exception("invalid port value");
 	}
-	
+
 	return new Address(host, portNumber);
     }
 }

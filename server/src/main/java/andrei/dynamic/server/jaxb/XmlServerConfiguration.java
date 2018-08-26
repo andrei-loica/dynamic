@@ -15,6 +15,9 @@ import javax.xml.bind.annotation.XmlRootElement;
 public class XmlServerConfiguration {
     
     @XmlElement
+    private String localAddress;
+    
+    @XmlElement
     private int localControlPort;
     
     @XmlElement
@@ -35,9 +38,20 @@ public class XmlServerConfiguration {
     @XmlElement
     private String logLocation;
     
+    @XmlElement
+    private boolean logAppend;
+    
     @XmlElement(name = "file-settings")
     private XmlFileSettings fileSettings;
+
     
+    public String getLocalAddress() {
+	return localAddress;
+    }
+
+    public void setLocalAddress(String localAddress) {
+	this.localAddress = localAddress;
+    }
 
     public int getLocalControlPort() {
 	return localControlPort;
@@ -93,6 +107,14 @@ public class XmlServerConfiguration {
 
     public void setLogLocation(String logLocation) {
 	this.logLocation = logLocation;
+    }
+
+    public boolean isLogAppend() {
+	return logAppend;
+    }
+
+    public void setLogAppend(boolean logAppend) {
+	this.logAppend = logAppend;
     }
 
     public XmlFileSettings getFileSettings() {

@@ -35,17 +35,19 @@ public class Main
 
 	validateConfig();
 
-	dir = new DirectoryPathHelper(initialConfig.getDirectoryPath());
-	controlAddress = new Address(initialConfig.getRemoteControlAddress(),
-		initialConfig.getRemoteControlPort());
-	dataAddress = new Address(initialConfig.getRemoteDataAddress(),
-		initialConfig.getRemoteDataPort());
+	dir = new DirectoryPathHelper(initialConfig.getRootDirectory());
+	controlAddress = new Address(initialConfig.getServerAddress(),
+		initialConfig.getServerControlPort());
+	dataAddress = new Address(initialConfig.getServerAddress(),
+		initialConfig.getServerDataPort());
 	keepAlive = initialConfig.getKeepAlive();
-	if (initialConfig.getLogLocation() == null || initialConfig.getLogLocation().
+	if (initialConfig.getLogLocation() == null || initialConfig.
+		getLogLocation().
 		isEmpty()) {
 	    initialConfig.setLogLevel("OFF");
 	    Log.setLevel(Level.OFF);
-	} else if (initialConfig.getLogLocation().toUpperCase().equals("CONSOLE")) {
+	} else if (initialConfig.getLogLocation().toUpperCase().
+		equals("CONSOLE")) {
 	    if (initialConfig.getLogLevel() == null || initialConfig.
 		    getLogLevel().isEmpty()) {
 		initialConfig.setLogLevel("INFO");
@@ -59,10 +61,11 @@ public class Main
 		initialConfig.setLogLevel("INFO");
 	    }
 	    try {
-		Log.setFile(initialConfig.getLogLocation());
+		Log.setFile(initialConfig.getLogLocation(), initialConfig.
+			isLogAppend());
 	    } catch (Exception ex) {
-		throw new Exception("failed setting log file: " + ex.
-			getMessage());
+		throw new Exception("failed setting log file: " + ex.getClass()
+			+ " " + ex.getMessage());
 	    }
 	    Log.setLevel(initialConfig.getLogLevel());
 	}
@@ -70,7 +73,7 @@ public class Main
     }
 
     public static void main(final String[] args) {
-	if ((args == null)) { //TODO vezi daca faci logger
+	if ((args == null)) {
 	    System.err.println(
 		    "incorrect number of parameters; should give the client configuration file path");
 	    System.exit(1);
@@ -90,15 +93,13 @@ public class Main
 	try {
 	    main = new Main(args[0]);
 	} catch (JAXBException ex) {
-	    //TODO
 	    System.err.println(
 		    "Initialization exception: could not load client configuration from given file path");
-	    ex.printStackTrace(System.err);
+	    //ex.printStackTrace(System.err);
 	    return;
 	} catch (Exception ex) {
-	    //TODO
 	    System.err.println("Initialization exception: " + ex.getMessage());
-	    ex.printStackTrace(System.err);
+	    //ex.printStackTrace(System.err);
 	    return;
 	}
 
@@ -115,11 +116,12 @@ public class Main
 	final Thread mainThread = Thread.currentThread();
 	shutdownHook = new Thread(new ShutdownTask(this, mainThread));
 	Runtime.getRuntime().addShutdownHook(shutdownHook);
-	
+
 	Log.info("initialized shutdown hook");
 
-	client = new Client(controlAddress, dataAddress, dir,
-		initialConfig.getClientAuthToken(), initialConfig.getKey());
+	client = new Client(initialConfig.getLocalAddress(), initialConfig.
+		getLocalPort(), controlAddress, dataAddress, dir, initialConfig.
+			getClientAuthToken(), initialConfig.getKey());
 
 	try {
 	    client.start(keepAlive);
@@ -136,42 +138,63 @@ public class Main
 	    throw new Exception("failed to extract client configuration");
 	}
 
-	if (initialConfig.getRemoteControlAddress() == null || (!initialConfig.
-		getRemoteControlAddress().matches(
+	if (initialConfig.getLocalAddress() == null || (!initialConfig.
+		getLocalAddress().matches(
 			"\\A(25[0-5]|2[0-4][0-9]|[01]?[0-9]{0,2})\\."
 			+ "(25[0-5]|2[0-4][0-9]|[01]?[0-9]{0,2})\\."
 			+ "(25[0-5]|2[0-4][0-9]|[01]?[0-9]{0,2})\\."
 			+ "(25[0-5]|2[0-4][0-9]|[01]?[0-9]{0,2})\\z")
-		&& !initialConfig.getRemoteControlAddress().matches(
+		&& !initialConfig.getLocalAddress().matches(
+			"\\Alocalhost\\z"))) {
+	    throw new Exception(
+		    "invalid localAddress parameter in client configuration");
+	}
+
+	if (initialConfig.getLocalPort() < 1 || initialConfig.
+		getServerControlPort() > 65535) {
+	    throw new Exception(
+		    "invalid localPort parameter in client configuration");
+	}
+
+	if (initialConfig.getServerAddress() == null || (!initialConfig.
+		getServerAddress().matches(
+			"\\A(25[0-5]|2[0-4][0-9]|[01]?[0-9]{0,2})\\."
+			+ "(25[0-5]|2[0-4][0-9]|[01]?[0-9]{0,2})\\."
+			+ "(25[0-5]|2[0-4][0-9]|[01]?[0-9]{0,2})\\."
+			+ "(25[0-5]|2[0-4][0-9]|[01]?[0-9]{0,2})\\z")
+		&& !initialConfig.getServerAddress().matches(
 			"\\Alocalhost\\z"))) {
 
-	    throw new Exception("invalid host address in client configuration");
+	    throw new Exception(
+		    "invalid serverAddress parameter in client configuration");
 	}
 
-	if (initialConfig.getRemoteControlPort() < 1 || initialConfig.
-		getRemoteControlPort() > 65535) {
+	if (initialConfig.getServerControlPort() < 1 || initialConfig.
+		getServerControlPort() > 65535) {
 	    throw new Exception(
-		    "invalid remote control port number in client configuration");
+		    "invalid serverControlPort parameter in client configuration");
 	}
 
-	if (initialConfig.getRemoteDataPort() < 1 || initialConfig.
-		getRemoteDataPort() > 65535) {
+	if (initialConfig.getServerDataPort() < 1 || initialConfig.
+		getServerDataPort() > 65535) {
 	    throw new Exception(
-		    "invalid remote data port number in client configuration");
+		    "invalid serverDataPort parameter in client configuration");
 	}
-	
-	if (initialConfig.getKey() == null || initialConfig.getKey().isEmpty()){
+
+	if (initialConfig.getKey() == null || initialConfig.getKey().isEmpty()) {
 	    throw new Exception("invalid key");
 	}
 
-	if (initialConfig.getDirectoryPath() == null) {
+	if (initialConfig.getRootDirectory() == null
+		|| initialConfig.getRootDirectory().isEmpty()) {
 	    throw new Exception(
-		    "could not extract directory path from client configuration");
+		    "invalid rootDirectory parameter in client configuration");
 	}
 
-	if (initialConfig.getClientAuthToken() == null) {
+	if (initialConfig.getClientAuthToken() == null || initialConfig.
+		getClientAuthToken().isEmpty()) {
 	    throw new Exception(
-		    "could not extract authentication token from client configuration");
+		    "invalid clientAuthToken parameter in client configuration");
 	}
     }
 

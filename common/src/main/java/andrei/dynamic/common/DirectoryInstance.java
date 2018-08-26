@@ -3,6 +3,7 @@ package andrei.dynamic.common;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 
 /**
@@ -29,16 +30,19 @@ public class DirectoryInstance
 
 	File[] actualContent = file.listFiles();
 
-	content = new AbstractContentNode[actualContent.length];
+	final ArrayList<AbstractContentNode> arr = new ArrayList();
 
 	for (int i = 0; i < actualContent.length; i++) {
 	    if (actualContent[i].isDirectory() && maxDepth > 1) {
-		content[i] = new DirectoryInstance(actualContent[i], maxDepth
-			- 1, this);
+		arr.add(new DirectoryInstance(actualContent[i], maxDepth
+			- 1, this));
 	    } else if (actualContent[i].isFile()) {
-		content[i] = new FileInstance(actualContent[i], this);
+		arr.add(new FileInstance(actualContent[i], this));
 	    }
 	}
+	content = new AbstractContentNode[arr.size()];
+	arr.toArray(content);
+	
 	Arrays.sort(content);
     }
 

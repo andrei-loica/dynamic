@@ -10,6 +10,7 @@ import java.util.Arrays;
  * @author Andrei
  */
 public class ServerConfiguration {
+    private String localAddress;
     private int localControlPort;
     private int localDataPort;
     private int localHttpPort;
@@ -18,12 +19,14 @@ public class ServerConfiguration {
     private FileSettings fileSettings;
     private String logLevel;
     private String logLocation;
+    private boolean logAppend;
     
     public ServerConfiguration(){
 	
     }
     
     public ServerConfiguration(final XmlServerConfiguration original){
+	localAddress = original.getLocalAddress();
 	localControlPort = original.getLocalControlPort();
 	localDataPort = original.getLocalDataPort();
 	localHttpPort = original.getLocalHttpPort();
@@ -32,6 +35,16 @@ public class ServerConfiguration {
 	fileSettings = new FileSettings(original.getFileSettings());
 	logLevel = original.getLogLevel().toUpperCase();
 	logLocation = original.getLogLocation();
+	logAppend = original.isLogAppend();
+    }
+    
+
+    public String getLocalAddress() {
+	return localAddress;
+    }
+
+    public void setLocalAddress(String localAddress) {
+	this.localAddress = localAddress;
     }
 
     public int getLocalControlPort() {
@@ -97,10 +110,19 @@ public class ServerConfiguration {
     public void setLogLocation(String logLocation) {
 	this.logLocation = logLocation;
     }
+
+    public boolean isLogAppend() {
+	return logAppend;
+    }
+
+    public void setLogAppend(boolean logAppend) {
+	this.logAppend = logAppend;
+    }
     
     public XmlServerConfiguration toJaxb(){
 	final XmlServerConfiguration converted = new XmlServerConfiguration();
 	
+	converted.setLocalAddress(localAddress);
 	converted.setLocalControlPort(localControlPort);
 	converted.setLocalDataPort(localDataPort);
 	converted.setLocalHttpPort(localHttpPort);
@@ -117,6 +139,7 @@ public class ServerConfiguration {
 	converted.setFileSettings(convertedSettings);
 	converted.setLogLevel(logLevel);
 	converted.setLogLocation(logLocation);
+	converted.setLogAppend(logAppend);
 	
 	return converted;
     }

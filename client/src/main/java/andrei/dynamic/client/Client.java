@@ -5,6 +5,8 @@ import andrei.dynamic.common.DirectoryPathHelper;
 import andrei.dynamic.common.MessageFactory;
 import andrei.dynamic.common.MustResetConnectionException;
 import andrei.dynamic.common.Log;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.EOFException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -40,8 +42,8 @@ public class Client {
     private final String authToken;
     private final DirectoryPathHelper dir;
     private Socket socket;
-    private CipherOutputStream out;
-    private CipherInputStream in;
+    private OutputStream out;
+    private InputStream in;
     private final byte[] key;
     private final byte[] iv;
     private boolean keepWorking;
@@ -57,10 +59,16 @@ public class Client {
 	this.localAddress = localAddress;
 	this.localPort = localPort;
 
-	final MessageDigest digest = MessageDigest.getInstance("SHA-256");
-	final byte[] bytes = digest.digest(key.getBytes(StandardCharsets.UTF_8));
-	this.key = Arrays.copyOf(bytes, 16);
-	iv = Arrays.copyOfRange(bytes, 16, 32);
+	if (key == null || key.isEmpty()) {
+	    this.key = null;
+	    this.iv = null;
+	} else {
+	    final MessageDigest digest = MessageDigest.getInstance("SHA-256");
+	    final byte[] bytes = digest.digest(key.getBytes(
+		    StandardCharsets.UTF_8));
+	    this.key = Arrays.copyOf(bytes, 16);
+	    iv = Arrays.copyOfRange(bytes, 16, 32);
+	}
 
 	keepWorking = true;
     }
@@ -137,8 +145,8 @@ public class Client {
 		Log.warn("could not enable socket reading timeout");
 	    }
 
-	    out = getCipherOutputStream(socket.getOutputStream());
-	    in = getCipherInputStream(socket.getInputStream());
+	    out = getOutputStream(socket.getOutputStream());
+	    in = getInputStream(socket.getInputStream());
 
 	    final Address runtimeLocalAddress = new Address(socket.
 		    getLocalAddress().toString(), socket.getLocalPort());
@@ -309,7 +317,7 @@ public class Client {
 	Log.trace("starting data transfer");
 	FileOutputStream writer = new FileOutputStream(temp.toString());
 
-	CipherInputStream dataStream = getCipherInputStream(dataSocket.
+	InputStream dataStream = getInputStream(dataSocket.
 		getInputStream());
 
 	final byte[] buff = new byte[1024 * 4];
@@ -317,20 +325,22 @@ public class Client {
 	    while (true) {
 		try {
 		    int read = dataStream.read(buff, 0, 4095);
-		    int dummy;
 		    /*System.out.println(read + " " + DatatypeConverter.
 			    printHexBinary(buff));*/
 		    if (read == -1) {
 			break;
 		    }
-		    if ((dummy = dataStream.read()) == -1) {
-			int padding = waitForPaddingMessage();
-			if (padding < read) {
-			    writer.write(buff, 0, read - padding);
+		    if (key != null) {
+			int dummy;
+			if ((dummy = dataStream.read()) == -1) {
+			    int padding = waitForPaddingMessage();
+			    if (padding < read) {
+				writer.write(buff, 0, read - padding);
+			    }
+			    break;
 			}
-			break;
+			buff[read++] = (byte) dummy;
 		    }
-		    buff[read++] = (byte) dummy;
 		    writer.write(buff, 0, read);
 		} catch (EOFException ex) {
 		    break;
@@ -383,8 +393,12 @@ public class Client {
 	return Files.deleteIfExists(absolute);
     }
 
-    private CipherOutputStream getCipherOutputStream(final OutputStream out)
+    private OutputStream getOutputStream(final OutputStream out)
 	    throws Exception {
+	if (key == null) {
+	    return new BufferedOutputStream(out);
+	}
+
 	final SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
 	final IvParameterSpec ivSpec = new IvParameterSpec(iv);
 	final Cipher cipher = Cipher.getInstance("AES/CBC/NoPadding");
@@ -393,8 +407,12 @@ public class Client {
 	return new CipherOutputStream(out, cipher);
     }
 
-    private CipherInputStream getCipherInputStream(final InputStream in) throws
+    private InputStream getInputStream(final InputStream in) throws
 	    Exception {
+	if (key == null) {
+	    return new BufferedInputStream(in);
+	}
+
 	final SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
 	final IvParameterSpec ivSpec = new IvParameterSpec(iv);
 	final Cipher cipher = Cipher.getInstance("AES/CBC/NoPadding");

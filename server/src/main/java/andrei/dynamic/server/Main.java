@@ -181,10 +181,6 @@ public class Main
 	    throw new Exception("data and http port values must be different");
 	}
 
-	if (initialConfig.getKey() == null || initialConfig.getKey().isEmpty()) {
-	    throw new Exception("invalid key parameter value");
-	}
-
 	if (initialConfig.getFileSettings() == null) {
 	    throw new Exception(
 		    "could not extract fileSettings from server configuration");

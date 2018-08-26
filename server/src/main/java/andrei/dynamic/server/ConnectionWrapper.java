@@ -6,6 +6,7 @@ import andrei.dynamic.common.Log;
 import andrei.dynamic.common.MessageFactory;
 import andrei.dynamic.common.MessageType;
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -31,8 +32,8 @@ public class ConnectionWrapper
     private final Socket socket;
     private final Address clientControlAddress;
     private String authToken;
-    private final CipherOutputStream out;
-    private final CipherInputStream in;
+    private final OutputStream out;
+    private final InputStream in;
     private boolean closing;
     private boolean updating;
 
@@ -56,8 +57,8 @@ public class ConnectionWrapper
 		    + getStringAddress());
 	}
 
-	out = getCipherOutputStream(socket.getOutputStream());
-	in = getCipherInputStream(socket.getInputStream());
+	out = getOutputStream(socket.getOutputStream());
+	in = getInputStream(socket.getInputStream());
 
 	closing = false;
     }
@@ -114,7 +115,7 @@ public class ConnectionWrapper
     public void startUploading(final String absolute) throws Exception {
 
 	final Socket dataSocket = manager.acceptDataConnection();
-	final CipherOutputStream dataOutput = getCipherOutputStream(dataSocket.
+	final OutputStream dataOutput = getOutputStream(dataSocket.
 		getOutputStream());
 	final BufferedInputStream fileInput = new BufferedInputStream(
 		new FileInputStream(absolute));
@@ -127,7 +128,7 @@ public class ConnectionWrapper
 	    dataOutput.write(buff, 0, read);
 	    check = (check + read) % 16;
 	}
-	if (check != 0) {
+	if (manager.getSecretKey() != null && check != 0) {
 	    Arrays.fill(buff, 0, 16 - check, (byte) 0);
 	    dataOutput.write(buff, 0, 16 - check);
 	}
@@ -135,10 +136,12 @@ public class ConnectionWrapper
 	fileInput.close();
 	dataSocket.close();
 
-	if (check == 0) {
-	    sendTransferPaddingMessage(0);
-	} else {
-	    sendTransferPaddingMessage(16 - check);
+	if (manager.getSecretKey() != null) {
+	    if (check == 0) {
+		sendTransferPaddingMessage(0);
+	    } else {
+		sendTransferPaddingMessage(16 - check);
+	    }
 	}
 
     }
@@ -240,8 +243,12 @@ public class ConnectionWrapper
 		MessageFactory.STD_MSG_DIM - 1, dim)), md5);
     }
 
-    private CipherOutputStream getCipherOutputStream(final OutputStream out)
+    private OutputStream getOutputStream(final OutputStream out)
 	    throws Exception {
+	if (manager.getSecretKey() == null){
+	    return new BufferedOutputStream(out);
+	}
+	
 	final SecretKeySpec keySpec = new SecretKeySpec(manager.getSecretKey(),
 		"AES");
 	final IvParameterSpec ivSpec
@@ -252,8 +259,12 @@ public class ConnectionWrapper
 	return new CipherOutputStream(out, cipher);
     }
 
-    private CipherInputStream getCipherInputStream(final InputStream in) throws
+    private InputStream getInputStream(final InputStream in) throws
 	    Exception {
+	if (manager.getSecretKey() == null){
+	    return new BufferedInputStream(in);
+	}
+	
 	final SecretKeySpec keySpec = new SecretKeySpec(manager.getSecretKey(),
 		"AES");
 	final IvParameterSpec ivSpec

@@ -181,10 +181,6 @@ public class Main
 		    "invalid serverDataPort parameter in client configuration");
 	}
 
-	if (initialConfig.getKey() == null || initialConfig.getKey().isEmpty()) {
-	    throw new Exception("invalid key");
-	}
-
 	if (initialConfig.getRootDirectory() == null
 		|| initialConfig.getRootDirectory().isEmpty()) {
 	    throw new Exception(

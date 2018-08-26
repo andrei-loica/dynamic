@@ -75,12 +75,16 @@ public class CoreManager
 	runtimeTokensForFile = new HashMap<>();
 	runtimeFilesForToken = new HashMap<>();
 
-	final MessageDigest digest = MessageDigest.getInstance("SHA-256");
-	final byte[] bytes = digest.digest(initialConfig.getKey().getBytes(
-		StandardCharsets.UTF_8));
-	key = Arrays.copyOf(bytes, 16);
-	iv = Arrays.copyOfRange(bytes, 16, 32);
-
+	if (initialConfig.getKey() == null || initialConfig.getKey().isEmpty()) {
+	    key = null;
+	    iv = null;
+	} else {
+	    final MessageDigest digest = MessageDigest.getInstance("SHA-256");
+	    final byte[] bytes = digest.digest(initialConfig.getKey().getBytes(
+		    StandardCharsets.UTF_8));
+	    key = Arrays.copyOf(bytes, 16);
+	    iv = Arrays.copyOfRange(bytes, 16, 32);
+	}
 	processFileSettings();
 
     }

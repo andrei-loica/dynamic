@@ -47,6 +47,7 @@ public class Client {
     private final byte[] key;
     private final byte[] iv;
     private boolean keepWorking;
+    private boolean reconnecting;
 
     public Client(final String localAddress, int localPort,
 	    final Address controlAddress, final Address dataAddress,
@@ -58,6 +59,7 @@ public class Client {
 	this.authToken = authToken;
 	this.localAddress = localAddress;
 	this.localPort = localPort;
+	reconnecting = false;
 
 	if (key == null || key.isEmpty()) {
 	    this.key = null;
@@ -83,7 +85,11 @@ public class Client {
 	    } catch (MustResetConnectionException ex) {
 		Log.fine("connection reset...");
 	    } catch (ClientException ex) {
-		Log.fine("connection failed: " + ex.getMessage());
+		if (reconnecting) {
+		    Log.trace("connection failed", ex);
+		} else {
+		    Log.fine("connection failed", ex);
+		}
 		if (!keepAlive) {
 		    throw new Exception("failed connecting to server");
 		}
@@ -105,7 +111,12 @@ public class Client {
 		break;
 	    }
 
-	    Log.fine("reconnecting...");
+	    if (reconnecting) {
+		Log.trace("reconnecting...");
+	    } else {
+		Log.fine("reconnecting...");
+		reconnecting = true;
+	    }
 	    Thread.sleep(3000);
 	}
 
@@ -127,7 +138,7 @@ public class Client {
 		try {
 		    socket.close();
 		} catch (Exception ex2) {
-		    Log.warn("failed closing tcp socket", ex);
+		    Log.warn("failed closing tcp socket", ex2);
 		}
 	    }
 	    throw new ClientException(ex.getMessage());
@@ -151,8 +162,10 @@ public class Client {
 	    final Address runtimeLocalAddress = new Address(socket.
 		    getLocalAddress().toString(), socket.getLocalPort());
 
-	    Log.fine("connecting with address " + runtimeLocalAddress + " to "
-		    + controlAddress + " using token " + authToken);
+	    Log.fine("connected with address " + runtimeLocalAddress + " to "
+		    + controlAddress);
+	    Log.debug("authenticating using token " + authToken);
+	    reconnecting = false;
 
 	    while (keepWorking) {
 

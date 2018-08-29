@@ -93,12 +93,6 @@ public class ConnectionWrapper
 	out.flush();
     }
 
-    private void sendTransferPaddingMessage(int padding) throws Exception {
-	byte[] msg = MessageFactory.newTransferPaddingMessage(padding);
-	out.write(msg);
-	out.flush();
-    }
-
     private void sendUpdateFileMessage(final String relative) throws Exception {
 
 	byte[] msg = MessageFactory.newUpdatedFileMessage(relative);
@@ -114,36 +108,32 @@ public class ConnectionWrapper
 
     public void startUploading(final String absolute) throws Exception {
 
-	final Socket dataSocket = manager.acceptDataConnection();
-	final OutputStream dataOutput = getOutputStream(dataSocket.
-		getOutputStream());
 	final BufferedInputStream fileInput = new BufferedInputStream(
 		new FileInputStream(absolute));
 
-	byte[] buff = new byte[1024 * 4];
+	byte[] buff = new byte[4096];
 
 	int read;
-	int check = 0;
-	while ((read = fileInput.read(buff)) != -1) {
-	    dataOutput.write(buff, 0, read);
-	    check = (check + read) % 16;
-	}
-	if (manager.getSecretKey() != null && check != 0) {
-	    Arrays.fill(buff, 0, 16 - check, (byte) 0);
-	    dataOutput.write(buff, 0, 16 - check);
-	}
-	dataOutput.close();
-	fileInput.close();
-	dataSocket.close();
-
-	if (manager.getSecretKey() != null) {
-	    if (check == 0) {
-		sendTransferPaddingMessage(0);
-	    } else {
-		sendTransferPaddingMessage(16 - check);
+	while ((read = fileInput.read(buff, 0, 4096)) != -1) {
+	    if (read != 0) {
+		int check = read % 16;
+		if (check == 0) {
+		    out.write(MessageFactory.newTransferContinueMessage(read,
+			    0));
+		    out.write(buff, 0, read);
+		} else {
+		    out.write(MessageFactory.newTransferContinueMessage(read
+			    + 16 - check, 16 - check));
+		    out.write(buff, 0, read);
+		    Arrays.fill(buff, 0, 16 - check, (byte) 0);
+		    out.write(buff, 0, 16 - check);
+		}
 	    }
 	}
+	out.write(MessageFactory.newTransferEndMessage());
 
+	out.flush();
+	fileInput.close();
     }
 
     public void updateRemoteFile(final String relative, final String absolute) {
@@ -217,7 +207,8 @@ public class ConnectionWrapper
 	sendCheckFileMessage(relative);
 
 	if (in.read() != MessageType.CHECK_FILE_MESSAGE_RSP.getCode()) {
-	    throw new MustResetConnectionException();
+	    throw new MustResetConnectionException(
+		    "unexpected message type in file check response");
 	}
 
 	int counter = 1;
@@ -245,10 +236,10 @@ public class ConnectionWrapper
 
     private OutputStream getOutputStream(final OutputStream out)
 	    throws Exception {
-	if (manager.getSecretKey() == null){
+	if (manager.getSecretKey() == null) {
 	    return new BufferedOutputStream(out);
 	}
-	
+
 	final SecretKeySpec keySpec = new SecretKeySpec(manager.getSecretKey(),
 		"AES");
 	final IvParameterSpec ivSpec
@@ -261,10 +252,10 @@ public class ConnectionWrapper
 
     private InputStream getInputStream(final InputStream in) throws
 	    Exception {
-	if (manager.getSecretKey() == null){
+	if (manager.getSecretKey() == null) {
 	    return new BufferedInputStream(in);
 	}
-	
+
 	final SecretKeySpec keySpec = new SecretKeySpec(manager.getSecretKey(),
 		"AES");
 	final IvParameterSpec ivSpec

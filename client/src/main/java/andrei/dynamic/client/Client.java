@@ -5,6 +5,7 @@ import andrei.dynamic.common.DirectoryPathHelper;
 import andrei.dynamic.common.MessageFactory;
 import andrei.dynamic.common.MustResetConnectionException;
 import andrei.dynamic.common.Log;
+import andrei.dynamic.common.MessageType;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.EOFException;
@@ -70,6 +71,7 @@ public class Client {
 		    StandardCharsets.UTF_8));
 	    this.key = Arrays.copyOf(bytes, 16);
 	    iv = Arrays.copyOfRange(bytes, 16, 32);
+	    Log.info("encryption activated");
 	}
 
 	keepWorking = true;
@@ -83,7 +85,7 @@ public class Client {
 	    try {
 		initConnection();
 	    } catch (MustResetConnectionException ex) {
-		Log.fine("connection reset...");
+		Log.fine("connection reset", ex);
 	    } catch (ClientException ex) {
 		if (reconnecting) {
 		    Log.trace("connection failed", ex);
@@ -198,11 +200,15 @@ public class Client {
 			case TEST_MESSAGE:
 			    sendTestResponse();
 			    break;
+			default:
+			    throw new MustResetConnectionException(
+				    "unexpected message type " + message.
+					    getType());
 		    }
 
 		} catch (EOFException ex) {
 		    //stop();
-		    throw new MustResetConnectionException();
+		    throw new MustResetConnectionException(ex.getMessage());
 		} catch (Exception ex) {
 		    throw ex;
 		}
@@ -281,7 +287,7 @@ public class Client {
 	    try {
 		type = in.read();
 	    } catch (SocketTimeoutException ex) {
-		//nimic
+		type = -2;
 	    }
 	}
 
@@ -309,94 +315,67 @@ public class Client {
 
 	Path original = FileSystems.getDefault().getPath(dir.root(), relative);
 	Path temp = dir.getTempFilePath(relative);
-	Socket dataSocket = null;
-
-	while (keepWorking) {
-	    try {
-		dataSocket = new Socket(dataAddress.getHost(),
-			dataAddress.getPort());
-		break;
-	    } catch (Exception ex) {
-		//nimic
-		Thread.sleep(500);
-		Log.fine("failed connecting to data channel");
-	    }
-	}
-
-	if (dataSocket == null || !dataSocket.isConnected()) {
-	    throw new SocketException("data transfer socket not bound");
-	}
 
 	Log.trace("starting data transfer");
 	FileOutputStream writer = new FileOutputStream(temp.toString());
 
-	InputStream dataStream = getInputStream(dataSocket.
-		getInputStream());
+	final byte[] buff = new byte[4096];
+	boolean streaming = true;
 
-	final byte[] buff = new byte[1024 * 4];
-	try {
-	    while (true) {
-		try {
-		    int read = dataStream.read(buff, 0, 4095);
-		    /*System.out.println(read + " " + DatatypeConverter.
-			    printHexBinary(buff));*/
-		    if (read == -1) {
-			break;
-		    }
-		    if (key != null) {
-			int dummy;
-			if ((dummy = dataStream.read()) == -1) {
-			    int padding = waitForPaddingMessage();
-			    if (padding < read) {
-				writer.write(buff, 0, read - padding);
-			    }
-			    break;
-			}
-			buff[read++] = (byte) dummy;
-		    }
-		    writer.write(buff, 0, read);
-		} catch (EOFException ex) {
+	while (streaming) {
+	    final MessageFromServer message = getMessage();
+	    int leftToRead;
+	    int padding;
+
+	    switch (message.getType()) {
+		case TRANSFER_END:
+		    streaming = false;
+		    leftToRead = 0;
+		    padding = 0;
 		    break;
+		case TRANSFER_CONTINUE:
+		    leftToRead = (message.getContent()[3] & 0xff)
+			    + ((message.getContent()[2] & 0xff) << 8)
+			    + ((message.getContent()[1] & 0xff) << 16)
+			    + ((message.getContent()[0] & 0xff) << 24);
+		    padding = message.getContent()[4] & 0xff;
+		    break;
+		default:
+		    throw new Exception("unexpected message type " + message.
+			    getType() + " in file transfer");
+	    }
+
+	    while (leftToRead > 0) {
+		int read = in.read(buff, 0, (4096 < leftToRead) ? 4096
+			: leftToRead);
+		if (read == -1) {
+		    throw new MustResetConnectionException("connection closed");
+		}
+		leftToRead -= read;
+
+		if (leftToRead < padding) {
+		    if (leftToRead + read > padding) {
+			writer.write(buff, 0, read - padding + leftToRead);
+		    }
+		} else {
+		    writer.write(buff, 0, read);
 		}
 	    }
-
-	    writer.flush();
-	    writer.close();
-
-	    if (!Files.exists(original.getParent())) {
-		Files.createDirectories(original.getParent());
-	    }
-	    Files.deleteIfExists(original);
-	    //(new File(temp.toString())).renameTo(new File(original.toString()));
-	    Files.move(temp, original, StandardCopyOption.REPLACE_EXISTING);
-	    if (Log.isTraceEnabled()) {
-		Log.trace("sucessfully downloaded file " + original.
-			toAbsolutePath());
-	    }
-	} finally {
-	    try {
-		dataStream.close();
-	    } catch (Exception ex1) {
-		Log.debug("failed closing data stream");
-	    }
-
-	    try {
-		dataSocket.close();
-	    } catch (Exception ex1) {
-		Log.debug("failed closing data socket");
-	    }
-	}
-    }
-
-    private int waitForPaddingMessage() throws Exception {
-	final MessageFromServer message = getMessage();
-
-	byte[] oneByte = MessageFactory.trimPadding(message.getContent());
-	if (oneByte == null || oneByte.length == 0) {
-	    return 0;
 	}
 
-	return oneByte[0];
+	writer.flush();
+	writer.close();
+
+	if (!Files.exists(original.getParent())) {
+	    Files.createDirectories(original.getParent());
+	}
+	Files.deleteIfExists(original);
+	//(new File(temp.toString())).renameTo(new File(original.toString()));
+	Files.move(temp, original, StandardCopyOption.REPLACE_EXISTING);
+	if (Log.isTraceEnabled()) {
+	    Log.trace("sucessfully downloaded file " + original.
+		    toAbsolutePath());
+	}
     }
 
     private boolean deleteFile(final String relative) throws Exception {

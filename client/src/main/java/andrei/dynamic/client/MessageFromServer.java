@@ -17,12 +17,10 @@ public class MessageFromServer {
 
     }
 
-    public MessageFromServer(int type, byte[] content) throws
-	    MustResetConnectionException {
+    public MessageFromServer(int type, byte[] content) throws Exception {
 
 	if ((this.type = MessageType.parseCode(type)) == null) {
-	    throw new MustResetConnectionException("unknown message type "
-		    + type);
+	    throw new Exception("unknown message type " + type);
 	}
 	this.content = content;
     }

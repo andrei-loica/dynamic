@@ -1,6 +1,7 @@
 package andrei.dynamic.common;
 
 import java.util.Arrays;
+import javax.xml.bind.DatatypeConverter;
 
 /**
  *
@@ -9,7 +10,7 @@ import java.util.Arrays;
 public class MessageFactory {
 
     public static final int STD_MSG_DIM = 256;
-    public static final int TRANSFER_PADDING_MDG_DIM = 32;
+    public static final int TRANSFER_MSG_DIM = 32;
     public static final int CHECK_FILE_MSG_RSP_DIM = 512;
 
     private MessageFactory() {
@@ -27,7 +28,9 @@ public class MessageFactory {
 	    case 114:
 		return CHECK_FILE_MSG_RSP_DIM;
 	    case 120:
-		return TRANSFER_PADDING_MDG_DIM;
+		return TRANSFER_MSG_DIM;
+	    case 130:
+		return TRANSFER_MSG_DIM;
 	    default:
 		return STD_MSG_DIM;
 		
@@ -44,8 +47,9 @@ public class MessageFactory {
 		return STD_MSG_DIM;
 	    case CHECK_FILE_MESSAGE_RSP:
 		return CHECK_FILE_MSG_RSP_DIM;
-	    case TRANSFER_PADDING:
-		return TRANSFER_PADDING_MDG_DIM;
+	    case TRANSFER_CONTINUE:
+	    case TRANSFER_END:
+		return TRANSFER_MSG_DIM;
 	    default:
 		return STD_MSG_DIM; //NOK
 	}
@@ -91,22 +95,31 @@ public class MessageFactory {
 			getCode(), content), STD_MSG_DIM);
     }
 
-    public static byte[] newTransferPaddingMessage(final int padding)
+    public static byte[] newTransferEndMessage()
 	    throws Exception {
-	if (padding > 15) {
-	    throw new IllegalArgumentException("padding value too big");
-	}
-	byte[] content = new byte[2];
-	content[0] = (byte) MessageType.TRANSFER_PADDING.getCode();
-	content[1] = (byte) padding;
+	byte[] content = new byte[1];
 
-	return resolvePadding(content, TRANSFER_PADDING_MDG_DIM);
+	content[0] = (byte) MessageType.TRANSFER_END.getCode();
+	return resolvePadding(content, TRANSFER_MSG_DIM);
+    }
+
+    public static byte[] newTransferContinueMessage(int size, int padding)
+	    throws Exception {
+	byte[] content = new byte[6];
+	content[0] = (byte) MessageType.TRANSFER_CONTINUE.getCode();
+	content[1] = (byte) (size >>> 24);
+	content[2] = (byte) (size >>> 16);
+	content[3] = (byte) (size >>> 8);
+	content[4] = (byte) size;
+	content[5] = (byte) padding;
+	
+	return resolvePadding(content, TRANSFER_MSG_DIM);
     }
 
     public static byte[] newCheckFileMessage(final String relativeName)
 	    throws Exception {
 	byte[] content;
-	content = relativeName.getBytes("US-ASCII"); //TODO: verifica inainte daca e ASCII
+	content = relativeName.getBytes("US-ASCII");
 
 	if (content.length >= STD_MSG_DIM) {
 	    throw new Exception("too big file relative name " + relativeName

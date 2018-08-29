@@ -44,7 +44,6 @@ public class CoreManager
     private final byte[] key;
     private final byte[] iv;
     private ConnectionListener connectionListener; //should never be null
-    private ServerSocket dataServer;
     private HttpManager httpManager;
     private final HashMap<String, HashSet<String>> tokensForContent; //<relativeFileName, tokens>
     private final HashMap<String, HashSet<String>> contentForToken; //<token, relativeFileNames>
@@ -84,8 +83,8 @@ public class CoreManager
 		    StandardCharsets.UTF_8));
 	    key = Arrays.copyOf(bytes, 16);
 	    iv = Arrays.copyOfRange(bytes, 16, 32);
+	    Log.info("encryption activated");
 	}
-	processFileSettings();
 
     }
 
@@ -94,26 +93,14 @@ public class CoreManager
 	httpManager = new HttpManager(this, config.getLocalAddress(), config.
 		getLocalHttpPort());
 	httpManager.start();
+	
+	processFileSettings();
+	dir.registerListener(this);
 
 	connectionListener = new ConnectionListener(this, config.
 		getLocalAddress(), config.getLocalControlPort());
-
-	dataServer = new ServerSocket();
-	dataServer.bind(new InetSocketAddress(config.getLocalAddress(), config.
-		getLocalDataPort()));
-	try {
-	    dataServer.setSoTimeout(2000);
-	} catch (Exception ex) {
-	    Log.warn("failed to set data transfer server timeout", ex);
-	}
 	connectionListener.start();
 
-	dir.registerListener(this);
-
-    }
-
-    public Socket acceptDataConnection() throws Exception {
-	return dataServer.accept();
     }
 
     public void stop() {
@@ -324,15 +311,6 @@ public class CoreManager
 	    Log.info("connection listener stopped");
 	    dir.deregisterListener();
 
-	    if (clientWorkers.isEmpty()) {
-		try {
-		    dataServer.close();
-		    Log.info("closed data transfer server");
-		} catch (Exception ex) {
-		    Log.warn("failed to close data transfer server", ex);
-		}
-	    }
-
 	    for (ClientWorker worker : clientWorkers) {
 		Log.info("sent stop for client " + worker.getClient().
 			getStringAddress());
@@ -388,15 +366,6 @@ public class CoreManager
 	if (authenticatingClients.remove(worker.getClient())) {
 	    Log.debug("client " + worker.getClient()
 		    + " stopped during authentication");
-	}
-
-	if (!connectionListener.isActive() && clientWorkers.isEmpty()) {
-	    try {
-		dataServer.close();
-		Log.info("closed data transfer server");
-	    } catch (Exception ex) {
-		Log.warn("failed to close data transfer server", ex);
-	    }
 	}
     }
 
@@ -919,11 +888,13 @@ public class CoreManager
 				    md5);
 			} catch (MustResetConnectionException ex) {
 			    Log.debug("failed remote file check for "
-				    + file);
+				    + file, ex);
+				    ex.printStackTrace(System.out);
 			    break;
 			} catch (Exception ex) {
 			    Log.warn("failed remote file check for "
-				    + file);
+				    + file, ex);
+				    ex.printStackTrace(System.out);
 			    break;
 			}
 
@@ -967,11 +938,13 @@ public class CoreManager
 					    md5);
 				} catch (MustResetConnectionException ex) {
 				    Log.debug("failed remote file check for "
-					    + file);
+					    + file, ex);
+				    ex.printStackTrace(System.out);
 				    break;
 				} catch (Exception ex) {
 				    Log.warn("failed remote file check for "
-					    + file);
+					    + file, ex);
+				    ex.printStackTrace(System.out);
 				    break;
 				}
 

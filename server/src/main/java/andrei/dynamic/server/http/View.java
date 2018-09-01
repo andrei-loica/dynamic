@@ -1,6 +1,7 @@
 package andrei.dynamic.server.http;
 
 import andrei.dynamic.common.Log;
+import andrei.dynamic.common.MessageFactory;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -8,8 +9,10 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URLDecoder;
+import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.List;
+import org.apache.commons.codec.digest.DigestUtils;
 
 /**
  *
@@ -18,9 +21,17 @@ import java.util.List;
 public abstract class View
 	implements HttpHandler {
 
+    private static final String ALPHANUM
+	    = "01abc2def3ghi4jkl5mno6pqr7stu8vwx9yz";
+    private final HttpManager manager;
+
+    public View(final HttpManager manager) {
+	this.manager = manager;
+    }
+
     protected void respond404(final HttpExchange req) throws IOException {
 
-	if (Log.isDebugEnabled()){
+	if (Log.isDebugEnabled()) {
 	    Log.debug("unknown or failed request to " + req.getRequestURI());
 	}
 	OutputStream out = req.getResponseBody();
@@ -115,6 +126,88 @@ public abstract class View
 
 	return Arrays.asList(decoded.split("&"));
 
+    }
+
+    protected boolean checkCredentials(final HttpExchange req, final String id,
+	    final String pw, final String salt) {
+	final String[] credentials = manager.getCredentials();
+	if (credentials == null) {
+	    return true;
+	}
+
+	final String address = req.getRemoteAddress().getHostString();
+	try {
+	    if (credentials[0].equals(id) && DigestUtils.
+		    sha256Hex(credentials[1] + salt).equals(pw)) {
+		manager.authenticated(address);
+		return true;
+	    }
+	} catch (Exception ex) {
+	    Log.debug("caught exception while authenticating " + address, ex);
+	}
+
+	return false;
+    }
+
+    protected void writeAuth(final HttpExchange req, final String redirectTo)
+	    throws Exception {
+	final SecureRandom rand = SecureRandom.getInstance("SHA1PRNG");
+	final String salt = "" + ALPHANUM.charAt(rand.nextInt(36)) + ALPHANUM.
+		charAt(rand.nextInt(36)) + ALPHANUM.charAt(rand.nextInt(36))
+		+ ALPHANUM.charAt(rand.nextInt(36)) + ALPHANUM.charAt(rand.
+		nextInt(36));
+
+	String content
+		= "<head><link rel=\"stylesheet\" type=\"text/css\" href=\"/static/css\"><script src=\"/static/auth\"></script></head><body><form id=\"auth\" action=\"/actions/login\" onsubmit=\"beforeSubmit()\" method=\"POST\"><div id=\"title\"><b>Authentication required</b><br></div><div><label>Id:</label><br><input type=\"text\" name=\"id\"></div><div><label>Password:</label><br><input id=\"password\" type=\"password\" name=\"password\"></div><input id=\"salt\" name=\"salt\" type=\"hidden\" value=\""
+		+ salt
+		+ "\"><input type=\"hidden\" name=\"redirectTo\" value=\""
+		+ redirectTo
+		+ "\"><input type=\"submit\" value=\"Login\"></form><script>function beforeSubmit(){var pass = document.getElementById('password');var salt = document.getElementById('salt');pass.value = Sha256.hash(pass.value + salt.value, { outFormat: 'hex' });return true;}</script></body>";
+
+	Headers headers = req.getResponseHeaders();
+	headers.set("Content-Type", "text/html");
+	req.sendResponseHeaders(200, 0);
+	req.getResponseBody().write(content.getBytes());
+
+	req.close();
+    }
+
+    protected void writeAuthAfterFailed(final HttpExchange req,
+	    final String redirectTo) throws Exception {
+	final SecureRandom rand = SecureRandom.getInstance("SHA1PRNG");
+	final String salt = "" + ALPHANUM.charAt(rand.nextInt(36)) + ALPHANUM.
+		charAt(rand.nextInt(36)) + ALPHANUM.charAt(rand.nextInt(36))
+		+ ALPHANUM.charAt(rand.nextInt(36)) + ALPHANUM.charAt(rand.
+		nextInt(36));
+
+	String content
+		= "<head><link rel=\"stylesheet\" type=\"text/css\" href=\"/static/css\"><script src=\"/static/auth\"></script></head><body><form id=\"auth\" action=\"/actions/login\" onsubmit=\"beforeSubmit()\" method=\"POST\"><div id=\"title\"><b>Authentication required</b><br><i>Login failed</i></div><div><label>Id:</label><br><input type=\"text\" name=\"id\"></div><div><label>Password:</label><br><input id=\"password\" type=\"password\" name=\"password\"></div><input id=\"salt\" name=\"salt\" type=\"hidden\" value=\""
+		+ salt
+		+ "\"><input type=\"hidden\" name=\"redirectTo\" value=\""
+		+ redirectTo
+		+ "\"><input type=\"submit\" value=\"Login\"></form><script>function beforeSubmit(){var pass = document.getElementById('password');var salt = document.getElementById('salt');pass.value = Sha256.hash(pass.value + salt.value, { outFormat: 'hex' });return true;}</script></body>";
+
+	Headers headers = req.getResponseHeaders();
+	headers.set("Content-Type", "text/html");
+	req.sendResponseHeaders(200, 0);
+	req.getResponseBody().write(content.getBytes());
+
+	req.close();
+    }
+
+    protected boolean authProcess(final HttpExchange req, final String redirect) {
+	if (!manager.usingAuth() || manager.checkAuth(req.getRemoteAddress().
+		getHostString())) {
+	    return true;
+	}
+
+	try {
+	    writeAuth(req, redirect);
+	} catch (Exception ex) {
+	    Log.debug("caught exception while loading auth page", ex);
+	}
+
+	return false;
     }
 
 }

@@ -12,7 +12,6 @@ import java.util.Arrays;
 public class ServerConfiguration {
     private String localAddress;
     private int localControlPort;
-    private int localDataPort;
     private int localHttpPort;
     private int maxClientConnections;
     private String key;
@@ -20,6 +19,9 @@ public class ServerConfiguration {
     private String logLevel;
     private String logLocation;
     private boolean logAppend;
+    private String webId;
+    private String webPass;
+    private int webLoginExpTime;
     
     public ServerConfiguration(){
 	
@@ -28,7 +30,6 @@ public class ServerConfiguration {
     public ServerConfiguration(final XmlServerConfiguration original){
 	localAddress = original.getLocalAddress();
 	localControlPort = original.getLocalControlPort();
-	localDataPort = original.getLocalDataPort();
 	localHttpPort = original.getLocalHttpPort();
 	maxClientConnections = original.getMaxClientConnections();
 	key = original.getKey();
@@ -36,6 +37,9 @@ public class ServerConfiguration {
 	logLevel = original.getLogLevel().toUpperCase();
 	logLocation = original.getLogLocation();
 	logAppend = original.isLogAppend();
+	webId = original.getWebId();
+	webPass = original.getWebPass();
+	webLoginExpTime = original.getWebLoginExpTime();
     }
     
 
@@ -53,14 +57,6 @@ public class ServerConfiguration {
 
     public void setLocalControlPort(int localControlPort) {
 	this.localControlPort = localControlPort;
-    }
-
-    public int getLocalDataPort() {
-	return localDataPort;
-    }
-
-    public void setLocalDataPort(int localDataPort) {
-	this.localDataPort = localDataPort;
     }
 
     public int getLocalHttpPort() {
@@ -118,13 +114,36 @@ public class ServerConfiguration {
     public void setLogAppend(boolean logAppend) {
 	this.logAppend = logAppend;
     }
+
+    public String getWebId() {
+	return webId;
+    }
+
+    public void setWebId(String webId) {
+	this.webId = webId;
+    }
+
+    public String getWebPass() {
+	return webPass;
+    }
+
+    public void setWebPass(String webPass) {
+	this.webPass = webPass;
+    }
+
+    public int getWebLoginExpTime() {
+	return webLoginExpTime;
+    }
+
+    public void setWebLoginExpTime(int webLoginExpTime) {
+	this.webLoginExpTime = webLoginExpTime;
+    }
     
     public XmlServerConfiguration toJaxb(){
 	final XmlServerConfiguration converted = new XmlServerConfiguration();
 	
 	converted.setLocalAddress(localAddress);
 	converted.setLocalControlPort(localControlPort);
-	converted.setLocalDataPort(localDataPort);
 	converted.setLocalHttpPort(localHttpPort);
 	converted.setMaxClientConnections(maxClientConnections);
 	converted.setKey(key);
@@ -140,6 +159,9 @@ public class ServerConfiguration {
 	converted.setLogLevel(logLevel);
 	converted.setLogLocation(logLocation);
 	converted.setLogAppend(logAppend);
+	converted.setWebId(webId);
+	converted.setWebPass(webPass);
+	converted.setWebLoginExpTime(webLoginExpTime);
 	
 	return converted;
     }

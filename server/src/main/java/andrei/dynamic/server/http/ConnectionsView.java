@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -19,7 +20,8 @@ public class ConnectionsView
 
     private final CoreManager core;
 
-    public ConnectionsView(final CoreManager core) {
+    public ConnectionsView(final HttpManager manager, final CoreManager core) {
+	super(manager);
 	this.core = core;
     }
 
@@ -37,17 +39,19 @@ public class ConnectionsView
 	    respond404(req);
 	    return;
 	}
+	if (!authProcess(req, "/connections")) {
+	    req.close();
+	    return;
+	}
 
 	OutputStream out = req.getResponseBody();
 	Headers headers = req.getResponseHeaders();
 	headers.set("Content-Type", "text/html");
-	//headers.set("Refresh", "3");
+	headers.set("Refresh", "3");
 	req.sendResponseHeaders(200, 0);
 
 	writePage(out);
-
 	req.close();
-
     }
 
     private void writePage(final OutputStream out) throws IOException {
@@ -55,11 +59,13 @@ public class ConnectionsView
 	final Collection<ConnectionWrapper> connected;
 	final Set<String> offline;
 	final Set<String> blocked;
+	final Map<String, String> history;
 
 	synchronized (core) {
 	    connected = core.getConnectedClients();
 	    offline = core.getOfflineClients();
 	    blocked = core.getBlockedClients();
+	    history = core.getLoginHistory();
 	}
 
 	final Set<String> blockedNotConfigured = new HashSet<>();
@@ -70,7 +76,7 @@ public class ConnectionsView
 		= headWithCss() + "<body>" + menu(1)
 		+ "<div id=\"conn-content\"><div class=\"description\"><div>Configured clients&nbsp&nbsp<i style=\"font-size: 15px\">("
 		+ connected.size() + "/" + (connected.size() + offline.size())
-		+ " connected)</i></div></div><table id=\"connections\"><tr id=\"table-description\"><th>State</th><th>Name</th><th>Connected IP Address</th><th colspan=\"3\" style=\"text-align: center\">Actions</th></tr>";
+		+ " connected)</i></div></div><table id=\"connections\"><tr id=\"table-description\"><th>State</th><th>Name</th><th>Last connected address</th><th colspan=\"3\" style=\"text-align: center\">Actions</th></tr>";
 
 	for (ConnectionWrapper client : connected) {
 	    blockedNotConfigured.remove(client.getAuthToken());
@@ -118,28 +124,36 @@ public class ConnectionsView
 	}
 
 	for (String client : offline) {
+	    String lastLogin = history.get(client);
+	    if (lastLogin == null){
+		lastLogin = "N/A";
+	    }
 	    if (blocked.contains(client)) {
 		content = content
 			+ "<tr><th><span class=\"blocked\" title=\"Blocked\"></span></th><th>"
 			+ client
-			+ "</th><th>N/A</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/unblock?client="
+			+ "</th><th>" + lastLogin + "</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/unblock?client="
 			+ client
 			+ "\" onclick=\"return confirm('Confirm unblock action?')\">unblock</a></th></tr>";
 	    } else {
 		content = content
 			+ "<tr><th><span class=\"offline\" title=\"Not connected\"></span></th><th>"
 			+ client
-			+ "</th><th>N/A</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/block?client="
+			+ "</th><th>" + lastLogin + "</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/block?client="
 			+ client
 			+ "\" onclick=\"return confirm('Confirm block action?')\">block</a></th></tr>";
 	    }
 	}
 
 	for (String client : blockedNotConfigured) {
+	    String lastLogin = history.get(client);
+	    if (lastLogin == null){
+		lastLogin = "N/A";
+	    }
 	    content = content
 		    + "<tr><th><span class=\"blocked\" title=\"Blocked and not configured\"></span></th><th>"
 		    + client
-		    + "</th><th>N/A</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/unblock?client="
+		    + "</th><th>" + lastLogin + "</th></th><th class=\"aligned-cell\" colspan=\"3\"><a href=\"/actions/unblock?client="
 		    + client
 		    + "\" onclick=\"return confirm('Confirm unblock action?')\">unblock</a></th></tr>";
 

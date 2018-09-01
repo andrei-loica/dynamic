@@ -17,7 +17,8 @@ public class FilesView
 
     private final CoreManager core;
 
-    public FilesView(final CoreManager core) {
+    public FilesView(final HttpManager manager, final CoreManager core) {
+	super(manager);
 	this.core = core;
     }
 
@@ -27,6 +28,10 @@ public class FilesView
 
 	if (path == null || (!path.equals("/files") && !path.equals("/files/"))) {
 	    respond404(req);
+	    return;
+	}
+	if (!authProcess(req, "/files")) {
+	    req.close();
 	    return;
 	}
 

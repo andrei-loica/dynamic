@@ -284,3 +284,34 @@ table {
 	background-color: rgb(240,240,240);
 	font-weight: bold;
 }
+
+#auth{
+	margin: 50px auto auto auto;
+	padding: 50px 0 30px 0;
+	width: 300px;
+	background-color: rgb(245,245,245);
+	border: 2px solid rgb(230,230,238);
+	border-radius: 5px;
+}
+
+#auth div{
+	width: 200px;
+	margin: 20px auto 20px auto;
+	display: block;
+	color: rgb(100,100,120);
+}
+
+#title{
+	text-align: center;
+	height: 80px;
+}
+
+#auth input[type='submit']{
+	width: 60px;
+	margin: 60px auto 40px auto;
+	display: block;
+}
+
+#title i{
+	color: red;
+}

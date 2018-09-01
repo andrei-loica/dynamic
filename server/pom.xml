@@ -32,6 +32,7 @@
                 <includes>
                     <include>style.css</include>
                     <include>script.js</include>
+                    <include>auth.js</include>
                 </includes>
             </resource>
         </resources>

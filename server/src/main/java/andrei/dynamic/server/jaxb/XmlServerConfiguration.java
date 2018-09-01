@@ -21,9 +21,6 @@ public class XmlServerConfiguration {
     private int localControlPort;
     
     @XmlElement
-    private int localDataPort;
-    
-    @XmlElement
     private int localHttpPort;
     
     @XmlElement
@@ -40,6 +37,15 @@ public class XmlServerConfiguration {
     
     @XmlElement
     private boolean logAppend;
+    
+    @XmlElement
+    private String webId;
+    
+    @XmlElement
+    private String webPass;
+    
+    @XmlElement
+    private int webLoginExpTime;
     
     @XmlElement(name = "file-settings")
     private XmlFileSettings fileSettings;
@@ -59,14 +65,6 @@ public class XmlServerConfiguration {
 
     public void setLocalControlPort(int localControlPort) {
 	this.localControlPort = localControlPort;
-    }
-
-    public int getLocalDataPort() {
-	return localDataPort;
-    }
-
-    public void setLocalDataPort(int localDataPort) {
-	this.localDataPort = localDataPort;
     }
 
     public int getLocalHttpPort() {
@@ -123,6 +121,30 @@ public class XmlServerConfiguration {
 
     public void setFileSettings(XmlFileSettings fileSettings) {
 	this.fileSettings = fileSettings;
+    }
+
+    public String getWebId() {
+	return webId;
+    }
+
+    public void setWebId(String webId) {
+	this.webId = webId;
+    }
+
+    public String getWebPass() {
+	return webPass;
+    }
+
+    public void setWebPass(String webPass) {
+	this.webPass = webPass;
+    }
+
+    public int getWebLoginExpTime() {
+	return webLoginExpTime;
+    }
+
+    public void setWebLoginExpTime(int webLoginExpTime) {
+	this.webLoginExpTime = webLoginExpTime;
     }
     
 }

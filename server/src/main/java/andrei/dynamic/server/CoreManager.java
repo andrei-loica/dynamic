@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
@@ -49,6 +50,7 @@ public class CoreManager
     private final HashMap<String, HashSet<String>> contentForToken; //<token, relativeFileNames>
     private final HashMap<String, HashSet<String>> runtimeTokensForFile;
     private final HashMap<String, HashSet<String>> runtimeFilesForToken;
+    private final HashMap<String, String> lastAddressForToken; //<token, address>
     private final HashSet<String> validTokens;
     private final HashSet<String> offlineTokens;
     private final HashSet<String> blockedTokens;
@@ -73,6 +75,7 @@ public class CoreManager
 	clientWorkers = new ArrayList<>();
 	runtimeTokensForFile = new HashMap<>();
 	runtimeFilesForToken = new HashMap<>();
+	lastAddressForToken = new HashMap<>();
 
 	if (initialConfig.getKey() == null || initialConfig.getKey().isEmpty()) {
 	    key = null;
@@ -91,9 +94,10 @@ public class CoreManager
     public void start() throws Exception {
 
 	httpManager = new HttpManager(this, config.getLocalAddress(), config.
-		getLocalHttpPort());
+		getLocalHttpPort(), config.getWebId(), config.getWebPass(),
+		config.getWebLoginExpTime());
 	httpManager.start();
-	
+
 	processFileSettings();
 	dir.registerListener(this);
 
@@ -337,7 +341,8 @@ public class CoreManager
 	    Log.fatal("http server unexpectedly stopped");
 	    try {
 		httpManager = new HttpManager(this, config.getLocalAddress(),
-			config.getLocalHttpPort());
+			config.getLocalHttpPort(), config.getWebId(), config.
+			getWebPass(), config.getWebLoginExpTime());
 		httpManager.start();
 	    } catch (Exception ex) {
 		Log.fatal("failed to restart http server", ex);
@@ -438,6 +443,7 @@ public class CoreManager
 
 	offlineTokens.remove(authToken);
 	connectedTokensWithWorkers.put(authToken, worker);
+	lastAddressForToken.put(authToken, worker.getClient().toString());
 	return true;
     }
 
@@ -559,6 +565,10 @@ public class CoreManager
 
     public Set<String> getBlockedClients() {
 	return blockedTokens;
+    }
+    
+    public Map<String, String> getLoginHistory(){
+	return lastAddressForToken;
     }
 
     public synchronized void blockClient(final String token) {
@@ -889,12 +899,12 @@ public class CoreManager
 			} catch (MustResetConnectionException ex) {
 			    Log.debug("failed remote file check for "
 				    + file, ex);
-				    ex.printStackTrace(System.out);
+			    ex.printStackTrace(System.out);
 			    break;
 			} catch (Exception ex) {
 			    Log.warn("failed remote file check for "
 				    + file, ex);
-				    ex.printStackTrace(System.out);
+			    ex.printStackTrace(System.out);
 			    break;
 			}
 

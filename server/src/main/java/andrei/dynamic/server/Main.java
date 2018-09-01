@@ -157,28 +157,14 @@ public class Main
 	    throw new Exception("invalid localControlPort parameter value");
 	}
 
-	if (initialConfig.getLocalDataPort() < 1 || initialConfig.
-		getLocalDataPort() > 65535) {
-	    throw new Exception("invalid localDataPort parameter value");
-	}
-
 	if (initialConfig.getLocalHttpPort() < 1 || initialConfig.
 		getLocalHttpPort() > 65535) {
 	    throw new Exception("invalid localHttpPort parameter value");
 	}
 
 	if (initialConfig.getLocalControlPort() == initialConfig.
-		getLocalDataPort()) {
-	    throw new Exception("control and data port values must be different");
-	}
-
-	if (initialConfig.getLocalControlPort() == initialConfig.
 		getLocalHttpPort()) {
 	    throw new Exception("control and http port values must be different");
-	}
-
-	if (initialConfig.getLocalDataPort() == initialConfig.getLocalHttpPort()) {
-	    throw new Exception("data and http port values must be different");
 	}
 
 	if (initialConfig.getFileSettings() == null) {

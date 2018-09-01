@@ -21,7 +21,8 @@ public class UpdateView
 
     private final CoreManager core;
 
-    public UpdateView(final CoreManager core) {
+    public UpdateView(final HttpManager manager, final CoreManager core) {
+	super(manager);
 	this.core = core;
     }
 
@@ -36,10 +37,22 @@ public class UpdateView
 	}
 
 	path = path.substring(7);
+	final String address;
+	try {
+	    address = req.getRemoteAddress().getHostString();
+	} catch (Exception ex) {
+	    Log.debug("failed to get remote address in web request");
+	    req.close();
+	    return;
+	}
 
 	switch (path) {
 	    case "/files":
 	    case "/files/":
+		if (!authProcess(req, "/files")) {
+		    req.close();
+		    return;
+		}
 		try {
 		    final HashSet<String> clients = new HashSet();
 		    final ArrayList<String> files = new ArrayList();
@@ -86,7 +99,8 @@ public class UpdateView
 			}
 		    }
 
-		    Log.info("(web request) updating file-groups");
+		    Log.info("(web request from " + address
+			    + ") updating file-groups");
 		    final ServerConfiguration config = core.getConfig();
 		    if (idx > 0) {
 			if (clients.isEmpty() && files.isEmpty()) {
@@ -123,7 +137,8 @@ public class UpdateView
 
 		    }
 		} catch (Exception ex) {
-		    Log.warn("(web request) failed to update file groups", ex);
+		    Log.warn("(web request from " + address
+			    + ") failed to update file groups", ex);
 		}
 		redirectTo("/files", req);
 
@@ -131,16 +146,18 @@ public class UpdateView
 
 	    case "/configuration":
 	    case "/configuration/":
+		if (!authProcess(req, "/params")) {
+		    req.close();
+		    return;
+		}
 		try {
 		    int localControlPort = -1;
-		    int localDataPort = -1;
 		    int localHttpPort = -1;
 		    int maxClientConnections = -1;
 		    int maxDepth = -1;
 		    int checkPeriod = -1;
 		    String logLevel = null;
 
-		    final List<String> query = parsePostRequestQuery(req);
 		    for (String entry : req.getRequestURI().getQuery().
 			    split("&")) {
 			final String[] pair = parsePair(entry);
@@ -148,10 +165,6 @@ public class UpdateView
 			switch (pair[0]) {
 			    case "localControlPort":
 				localControlPort = Integer.parseInt(pair[1]);
-				break;
-
-			    case "localDataPort":
-				localDataPort = Integer.parseInt(pair[1]);
 				break;
 
 			    case "localHttpPort":
@@ -181,9 +194,6 @@ public class UpdateView
 			if (localControlPort >= 0 && localControlPort < 65536) {
 			    config.setLocalControlPort(localControlPort);
 			}
-			if (localDataPort >= 0 && localDataPort < 65536) {
-			    config.setLocalDataPort(localDataPort);
-			}
 			if (localHttpPort >= 0 && localHttpPort < 65536) {
 			    config.setLocalHttpPort(localHttpPort);
 			}
@@ -201,11 +211,13 @@ public class UpdateView
 			if (logLevel != null) {
 			    config.setLogLevel(logLevel);
 			}
-			Log.info("(web request) updating configuration");
+			Log.info("(web request from " + address
+				+ ") updating configuration");
 			core.saveConfig();
 		    }
 		} catch (Exception ex) {
-		    Log.warn("(web request) failed to update configuration", ex);
+		    Log.warn("(web request from " + address
+			    + ") failed to update configuration", ex);
 		}
 		redirectTo("/params", req);
 

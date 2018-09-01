@@ -9,10 +9,11 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URLDecoder;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.List;
-import org.apache.commons.codec.digest.DigestUtils;
+import javax.xml.bind.DatatypeConverter;
 
 /**
  *
@@ -137,13 +138,14 @@ public abstract class View
 
 	final String address = req.getRemoteAddress().getHostString();
 	try {
-	    if (credentials[0].equals(id) && DigestUtils.
-		    sha256Hex(credentials[1] + salt).equals(pw)) {
+	    if (credentials[0].equals(id) && toSha256(credentials[1] + salt).
+		    toLowerCase().equals(pw.toLowerCase())) {
 		manager.authenticated(address);
 		return true;
 	    }
 	} catch (Exception ex) {
-	    Log.debug("caught exception while authenticating " + address, ex);
+	    Log.debug("caught exception while verifying credentials " + address,
+		    ex);
 	}
 
 	return false;
@@ -208,6 +210,19 @@ public abstract class View
 	}
 
 	return false;
+    }
+
+    protected String toSha256(final String entry) throws Exception {
+	MessageDigest digest;
+	try {
+	    digest = MessageDigest.getInstance("SHA-256");
+	} catch (Exception ex) {
+	    Log.fatal("cannot get SHA-256 algorithm instance");
+	    throw ex;
+	}
+	byte[] sha256 = digest.digest(entry.getBytes());
+
+	return DatatypeConverter.printHexBinary(sha256);
     }
 
 }

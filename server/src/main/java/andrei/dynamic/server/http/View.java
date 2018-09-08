@@ -1,7 +1,6 @@
 package andrei.dynamic.server.http;
 
 import andrei.dynamic.common.Log;
-import andrei.dynamic.common.MessageFactory;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -104,14 +103,14 @@ public abstract class View
 
 	final BufferedInputStream in = new BufferedInputStream(req.
 		getRequestBody());
-	final byte[] buff = new byte[8192];
+	final byte[] buff = new byte[16384];
 	int totalRead = 0;
 	int lastRead;
 
 	try {
-	    while ((lastRead = in.read(buff, totalRead, 8192 - totalRead)) != -1) {
+	    while ((lastRead = in.read(buff, totalRead, 16384 - totalRead)) != -1) {
 		totalRead += lastRead;
-		if (totalRead > 8191) {
+		if (totalRead > 16382) {
 		    break;
 		}
 	    }

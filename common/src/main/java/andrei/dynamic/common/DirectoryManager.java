@@ -43,7 +43,7 @@ public final class DirectoryManager {
 		    "given directory path does not point to a directory");
 	}
 
-	paths = new DirectoryPathHelper(root.getAbsolutePath());
+	paths = new DirectoryPathHelper(root.getAbsolutePath(), null);
 	listener = null;
 	checkSums = new HashMap<>();
 	lastImage = new DirectoryInstance(root, maxDepth, null);
@@ -96,7 +96,12 @@ public final class DirectoryManager {
 
 	if (state == State.INITIALIZED_NOT_REGISTERED || state
 		== State.NOT_INITIALIZED || state
-		== State.DEREGISTERED_WAITING_WORKER_STOP) {
+		== State.DEREGISTERED_WAITING_STOP) {
+	    return;
+	}
+
+	if (state == State.REGISTERED_WAITING_STOP) {
+	    state = State.REGISTERED_WAITING_STOP_THEN_CHECK;
 	    return;
 	}
 
@@ -136,7 +141,7 @@ public final class DirectoryManager {
 
 	synchronized (lock) {
 	    final DirectoryInstance newImage
-		    = new DirectoryInstance(root, maxDepth, null); //le si sorteaza
+		    = new DirectoryInstance(root, maxDepth, null);
 	    final ArrayList<FileInstance> lastContent;
 	    final ArrayList<FileInstance> newContent;
 	    lastContent = lastImage.getAllFiles(maxDepth);
@@ -227,7 +232,7 @@ public final class DirectoryManager {
 
     public synchronized void deregisterListener() {
 
-	state = State.DEREGISTERED_WAITING_WORKER_STOP;
+	state = State.DEREGISTERED_WAITING_STOP;
 	if (worker != null) {
 	    worker.stopWorking();
 	}
@@ -241,9 +246,9 @@ public final class DirectoryManager {
     }
 
     @SuppressWarnings("empty-statement")
-    public byte[] getLocalFileMD5(final String absolute) throws Exception {
+    public static byte[] getLocalFileMD5(final String absolute) throws Exception {
 
-	return paths.getLocalFileMD5(absolute);
+	return DirectoryPathHelper.getLocalFileMD5(absolute);
     }
 
     public void loadFiles() {
@@ -275,16 +280,24 @@ public final class DirectoryManager {
     }
 
     private synchronized void workerStopped() {
-	worker = null;
-	switch (state) {
-	    case DEREGISTERED_WAITING_WORKER_STOP:
-		listener = null;
-		state = State.INITIALIZED_NOT_REGISTERED;
-		break;
+	if (worker.isWorking()) {
+	    switch (state) {
+		case DEREGISTERED_WAITING_STOP:
+		    listener = null;
+		    state = State.INITIALIZED_NOT_REGISTERED;
+		    break;
 
-	    case REGISTERED_WORKING:
-		state = State.REGISTERED_NOT_WORKING;
-		break;
+		case REGISTERED_WAITING_STOP:
+		case REGISTERED_WORKING:
+		    state = State.REGISTERED_NOT_WORKING;
+		    break;
+
+		case REGISTERED_WAITING_STOP_THEN_CHECK:
+		    state = State.REGISTERED_NOT_WORKING;
+		    checkWorker();
+		    break;
+
+	    }
 	}
     }
 
@@ -293,7 +306,7 @@ public final class DirectoryManager {
 	try {
 	    listener.onFileLoaded(file);
 	} catch (Exception ex) {
-	    //asta n-ar trebui sa se intample never ever
+
 	}
 	//}
     }
@@ -303,7 +316,7 @@ public final class DirectoryManager {
 	try {
 	    listener.onFileCreated(file);
 	} catch (Exception ex) {
-	    //asta n-ar trebui sa se intample never ever
+
 	}
 	//}
     }
@@ -313,7 +326,7 @@ public final class DirectoryManager {
 	try {
 	    listener.onFileModified(file);
 	} catch (Exception ex) {
-	    //asta n-ar trebui sa se intample never ever
+
 	}
 	//}
     }
@@ -354,13 +367,14 @@ public final class DirectoryManager {
 		}
 
 		try {
-		    parent.refreshContentImage(); //refresh + trimitere modificari la listeneri
+		    parent.refreshContentImage();
 		} catch (Exception ex) {
-		    //TODO: log
+
 		}
 
 	    }
 
+	    stopWorking();
 	    parent.workerStopped();
 
 	}
@@ -375,6 +389,11 @@ public final class DirectoryManager {
 
 	public void stopWorking() {
 	    keepWorking = false;
+	    try{
+		this.interrupt();
+	    } catch (Exception ex){
+		Log.debug("failed interrupting DirectoryManager worker", ex);
+	    }
 	}
 
 	public boolean isWorking() {
@@ -388,7 +407,9 @@ public final class DirectoryManager {
 	INITIALIZED_NOT_REGISTERED,
 	REGISTERED_NOT_WORKING,
 	REGISTERED_WORKING,
-	DEREGISTERED_WAITING_WORKER_STOP,
+	REGISTERED_WAITING_STOP,
+	REGISTERED_WAITING_STOP_THEN_CHECK,
+	DEREGISTERED_WAITING_STOP,
     }
 
 }

@@ -33,7 +33,7 @@ public class Log {
 
 	};
 
-	level = null;
+	level = CustomLevel.OFF;
 	handler = null;
     }
 
@@ -41,39 +41,39 @@ public class Log {
     }
 
     public static void setLevel(final String level) {
-	switch (level.toUpperCase()) {
-	    case "OFF":
-		Log.level = CustomLevel.OFF;
-		break;
-	    case "TRACE":
-		Log.level = CustomLevel.TRACE;
-		break;
-	    case "DEBUG":
-		Log.level = CustomLevel.DEBUG;
-		break;
-	    case "FINE":
-		Log.level = CustomLevel.FINE;
-		break;
-	    case "INFO":
-		Log.level = CustomLevel.INFO;
-		break;
-	    case "WARNING":
-		Log.level = CustomLevel.WARNING;
-		break;
-	    case "FATAL":
-		Log.level = CustomLevel.FATAL;
-		break;
-	    default:
-		throw new IllegalArgumentException("unknown logging level");
-	}
 	if (handler != null) {
+	    switch (level.toUpperCase()) {
+		case "OFF":
+		    Log.level = CustomLevel.OFF;
+		    break;
+		case "TRACE":
+		    Log.level = CustomLevel.TRACE;
+		    break;
+		case "DEBUG":
+		    Log.level = CustomLevel.DEBUG;
+		    break;
+		case "FINE":
+		    Log.level = CustomLevel.FINE;
+		    break;
+		case "INFO":
+		    Log.level = CustomLevel.INFO;
+		    break;
+		case "WARNING":
+		    Log.level = CustomLevel.WARNING;
+		    break;
+		case "FATAL":
+		    Log.level = CustomLevel.FATAL;
+		    break;
+		default:
+		    throw new IllegalArgumentException("unknown logging level");
+	    }
 	    handler.setLevel(Log.level);
 	}
     }
 
     public static void setLevel(final Level level) {
-	Log.level = level;
 	if (handler != null) {
+	    Log.level = level;
 	    handler.setLevel(Log.level);
 	}
     }
@@ -82,7 +82,8 @@ public class Log {
 	return level;
     }
 
-    public static void setFile(final String logFile, boolean append) throws Exception {
+    public static void setFile(final String logFile, boolean append) throws
+	    Exception {
 	handler = new FileHandler(logFile, append);
 	handler.setFormatter(FORMATTER);
 	if (level != null) {
@@ -93,29 +94,31 @@ public class Log {
     public static void setStdOutput() {
 	handler = new ConsoleHandler();
 	handler.setFormatter(FORMATTER);
-	if (level != null){
+	if (level != null) {
 	    handler.setLevel(level);
 	}
     }
-    
-    public static void close(){
-	handler.flush();
-	try {
-	handler.close();
-	} catch (Exception ex){
-	    //nimic
+
+    public static void close() {
+	if (handler != null) {
+	    handler.flush();
+	    try {
+		handler.close();
+	    } catch (Exception ex) {
+		//nimic
+	    }
 	}
     }
-    
-    public static boolean isTraceEnabled(){
+
+    public static boolean isTraceEnabled() {
 	return level == CustomLevel.TRACE;
     }
-    
-    public static boolean isDebugEnabled(){
+
+    public static boolean isDebugEnabled() {
 	return (level == CustomLevel.DEBUG || level == CustomLevel.TRACE);
     }
-    
-    public static void log(Level logLevel, final String log){
+
+    public static void log(Level logLevel, final String log) {
 	final LogRecord record = new LogRecord(logLevel, log);
 	handler.publish(record);
     }
@@ -145,27 +148,33 @@ public class Log {
     }
 
     public static void trace(final String log, final Throwable ex) {
-	log(CustomLevel.TRACE, log + ": " + ex.getClass() + " " + ex.getMessage());
+	log(CustomLevel.TRACE, log + ": " + ex.getClass().getCanonicalName()
+		+ " " + ex.getMessage());
     }
 
     public static void debug(final String log, final Throwable ex) {
-	log(CustomLevel.DEBUG, log + ": " + ex.getClass() + " " + ex.getMessage());
+	log(CustomLevel.DEBUG, log + ": " + ex.getClass().getCanonicalName()
+		+ " " + ex.getMessage());
     }
 
     public static void fine(final String log, final Throwable ex) {
-	log(CustomLevel.FINE, log + ": " + ex.getClass() + " " + ex.getMessage());
+	log(CustomLevel.FINE, log + ": " + ex.getClass().getCanonicalName()
+		+ " " + ex.getMessage());
     }
 
     public static void info(final String log, final Throwable ex) {
-	log(CustomLevel.INFO, log + ": " + ex.getClass() + " " + ex.getMessage());
+	log(CustomLevel.INFO, log + ": " + ex.getClass().getCanonicalName()
+		+ " " + ex.getMessage());
     }
 
     public static void warn(final String log, final Throwable ex) {
-	log(CustomLevel.WARNING, log + ": " + ex.getClass() + " " + ex.getMessage());
+	log(CustomLevel.WARNING, log + ": " + ex.getClass().getCanonicalName()
+		+ " " + ex.getMessage());
     }
 
     public static void fatal(final String log, final Throwable ex) {
-	log(CustomLevel.FATAL, log + ": " + ex.getClass() + " " + ex.getMessage());
+	log(CustomLevel.FATAL, log + ": " + ex.getClass().getCanonicalName()
+		+ " " + ex.getMessage());
     }
 
     private static class CustomLevel

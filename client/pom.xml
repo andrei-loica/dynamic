@@ -20,11 +20,6 @@
             <groupId>${project.groupId}</groupId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
-            <artifactId>commons-codec</artifactId>
-            <groupId>commons-codec</groupId>
-            <version>1.11</version>
-        </dependency>
     </dependencies>
     
     <build>

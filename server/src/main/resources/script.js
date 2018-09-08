@@ -10,7 +10,7 @@ function changeNewGroupVision() {
 
 function addClientNode(id){
 	var parent = document.getElementById(id);
-	if (parent.childElementCount < 10) {
+	if (parent.childElementCount < 20) {
             var client = document.createElement("input");
             client.setAttribute("type", "text");
             client.setAttribute("name", "client");
@@ -23,7 +23,7 @@ function addClientNode(id){
 
 function addFileNode(id){
 	var parent = document.getElementById(id);
-	if (parent.childElementCount < 10) {
+	if (parent.childElementCount < 20) {
             var client = document.createElement("input");
             client.setAttribute("type", "text");
             client.setAttribute("name", "file");

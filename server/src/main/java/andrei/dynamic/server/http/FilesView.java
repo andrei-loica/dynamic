@@ -64,12 +64,12 @@ public class FilesView
 		    + group.getOrder() + "\">";
 	    if (group.getClients() == null) {
 		content = content
-			+ "<input type=\"text\" name=\"client\" value=\"\" maxlength=\"150\">";
+			+ "<input type=\"text\" name=\"client\" value=\"\" maxlength=\"255\">";
 	    } else {
 		for (String client : group.getClients()) {
 		    content = content
 			    + "<input type=\"text\" name=\"client\" value=\""
-			    + client + "\" maxlength=\"150\">";
+			    + client + "\" maxlength=\"255\">";
 		}
 	    }
 	    content = content

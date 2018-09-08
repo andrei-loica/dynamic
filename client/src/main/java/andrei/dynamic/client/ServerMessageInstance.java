@@ -8,16 +8,16 @@ import java.util.Arrays;
  *
  * @author Andrei
  */
-public class MessageFromServer {
+public class ServerMessageInstance {
 
     private MessageType type;
     private byte[] content;
 
-    public MessageFromServer() {
+    public ServerMessageInstance() {
 
     }
 
-    public MessageFromServer(int type, byte[] content) throws Exception {
+    public ServerMessageInstance(int type, byte[] content) throws Exception {
 
 	if ((this.type = MessageType.parseCode(type)) == null) {
 	    throw new Exception("unknown message type " + type);

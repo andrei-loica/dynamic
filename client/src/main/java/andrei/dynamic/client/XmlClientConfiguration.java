@@ -11,7 +11,7 @@ import javax.xml.bind.annotation.XmlRootElement;
  */
 @XmlRootElement(name = "client-configuration")
 @XmlAccessorType(XmlAccessType.NONE)
-public class ClientConfiguration {
+public class XmlClientConfiguration {
     @XmlElement
     private String localAddress;
     
@@ -25,13 +25,13 @@ public class ClientConfiguration {
     private int serverControlPort;
     
     @XmlElement
-    private int serverDataPort;
-    
-    @XmlElement
     private boolean keepAlive;
     
     @XmlElement
     private String rootDirectory;
+    
+    @XmlElement
+    private String tempDirectory;
     
     @XmlElement
     private String clientAuthToken;
@@ -81,14 +81,6 @@ public class ClientConfiguration {
 	this.serverControlPort = serverControlPort;
     }
 
-    public int getServerDataPort() {
-	return serverDataPort;
-    }
-
-    public void setServerDataPort(int serverDataPort) {
-	this.serverDataPort = serverDataPort;
-    }
-
     public boolean getKeepAlive() {
 	return keepAlive;
     }
@@ -103,6 +95,14 @@ public class ClientConfiguration {
 
     public void setRootDirectory(String rootDirectory) {
 	this.rootDirectory = rootDirectory;
+    }
+
+    public String getTempDirectory() {
+	return tempDirectory;
+    }
+
+    public void setTempDirectory(String tempDirectory) {
+	this.tempDirectory = tempDirectory;
     }
 
     public String getClientAuthToken() {

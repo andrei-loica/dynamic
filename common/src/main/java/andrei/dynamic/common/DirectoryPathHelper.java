@@ -15,16 +15,24 @@ import java.security.MessageDigest;
  */
 public class DirectoryPathHelper {
 
-    private static final String TEMP_DIR = "temp";
-    final String absoluteRoot;
+    private final String tempDir;
+    private final String absoluteRoot;
 
-    public DirectoryPathHelper(final String absoluteRoot) {
+    public DirectoryPathHelper(final String absoluteRoot, final String tempDir) {
 	if (absoluteRoot.charAt(absoluteRoot.length() - 1) == '\\'
 		|| absoluteRoot.charAt(absoluteRoot.length() - 1) == '/') {
 	    this.absoluteRoot = absoluteRoot.substring(0, absoluteRoot.length()
 		    - 1);
 	} else {
 	    this.absoluteRoot = absoluteRoot;
+	}
+	if (tempDir == null || tempDir.isEmpty()) {
+	    this.tempDir = absoluteRoot + "/temp";
+	} else if (tempDir.charAt(tempDir.length() - 1) == '\\' || tempDir.
+		charAt(tempDir.length() - 1) == '/') {
+	    this.tempDir = tempDir.substring(0, tempDir.length() - 1);
+	} else {
+	    this.tempDir = tempDir;
 	}
     }
 
@@ -63,7 +71,7 @@ public class DirectoryPathHelper {
     }
 
     public Path getTempFilePath(final String relativePath) throws Exception {
-	Path absolute = FileSystems.getDefault().getPath(absoluteRoot, TEMP_DIR,
+	Path absolute = FileSystems.getDefault().getPath(tempDir,
 		relativePath.trim());
 	Files.createDirectories(absolute.getParent());
 	try {
@@ -76,7 +84,7 @@ public class DirectoryPathHelper {
     }
 
     @SuppressWarnings("empty-statement")
-    public byte[] getLocalFileMD5(final String absolute) throws Exception {
+    public static byte[] getLocalFileMD5(final String absolute) throws Exception {
 
 	final MessageDigest digest = MessageDigest.getInstance("MD5");
 

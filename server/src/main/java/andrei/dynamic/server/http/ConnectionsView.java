@@ -32,6 +32,7 @@ public class ConnectionsView
 
 	if ("/".equals(path)) {
 	    redirectTo("/connections", req);
+	    return;
 	}
 
 	if (path == null || (!path.equals("/connections") && !path.equals(

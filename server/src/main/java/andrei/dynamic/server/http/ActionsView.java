@@ -50,7 +50,7 @@ public class ActionsView
 		final String[] pair = parsePair(req.getRequestURI().getQuery());
 
 		if (pair == null || !"client".equals(pair[0]) || pair[1].
-			length() > MessageFactory.STD_MSG_DIM - 1) {
+			length() >= MessageFactory.STD_MSG_DIM) {
 		    respond404(req);
 		    return;
 		}
@@ -79,7 +79,7 @@ public class ActionsView
 		final String[] pair = parsePair(req.getRequestURI().getQuery());
 
 		if (pair == null || !"client".equals(pair[0]) || pair[1].
-			length() > MessageFactory.STD_MSG_DIM - 1) {
+			length() >= MessageFactory.STD_MSG_DIM) {
 		    respond404(req);
 		    return;
 		}
@@ -107,7 +107,7 @@ public class ActionsView
 		final String[] pair = parsePair(req.getRequestURI().getQuery());
 
 		if (pair == null || !"client".equals(pair[0]) || pair[1].
-			length() > MessageFactory.STD_MSG_DIM - 1) {
+			length() >= MessageFactory.STD_MSG_DIM) {
 		    respond404(req);
 		    return;
 		}
@@ -137,7 +137,7 @@ public class ActionsView
 		final String[] pair = parsePair(req.getRequestURI().getQuery());
 
 		if (pair == null || !"client".equals(pair[0]) || pair[1].
-			length() > MessageFactory.STD_MSG_DIM - 1) {
+			length() >= MessageFactory.STD_MSG_DIM) {
 		    respond404(req);
 		    return;
 		}
@@ -148,10 +148,8 @@ public class ActionsView
 		try {
 		    core.pushClient(pair[1]);
 		} catch (Exception ex) {
-		    Log.
-			    warn("(web request from " + address
-				    + ") failed pushing to client " + pair[1],
-				    ex);
+		    Log.warn("(web request from " + address
+			    + ") failed pushing to client " + pair[1], ex);
 		}
 
 		redirectTo("/connections", req);
@@ -218,6 +216,9 @@ public class ActionsView
 		    respond404(req);
 		}
 		break;
+
+	    default:
+		respond404(req);
 	}
 
     }

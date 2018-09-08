@@ -34,35 +34,37 @@ public class Main
 
 	validateConfig();
 
-	final XmlFileSettings fileSettings = initialConfig.getFileSettings();
 	if (initialConfig.getLogLocation() == null || initialConfig.
-		getLogLocation().
-		isEmpty()) {
+		getLogLocation().isEmpty()) {
 	    initialConfig.setLogLevel("OFF");
 	    Log.setLevel(Level.OFF);
-	} else if (initialConfig.getLogLocation().toUpperCase().
-		equals("CONSOLE")) {
-	    if (initialConfig.getLogLevel() == null || initialConfig.
-		    getLogLevel().isEmpty()) {
-		initialConfig.setLogLevel("INFO");
-	    }
-	    Log.setStdOutput();
-	    Log.setLevel(initialConfig.getLogLevel());
 	} else {
 	    if (initialConfig.getLogLevel() == null || initialConfig.
 		    getLogLevel().isEmpty()) {
 		initialConfig.setLogLevel("INFO");
 	    }
-	    try {
-		Log.setFile(initialConfig.getLogLocation(), initialConfig.
-			isLogAppend());
-	    } catch (Exception ex) {
-		throw new Exception("failed setting log file: " + ex.getClass()
-			+ " " + ex.getMessage());
+
+	    if (initialConfig.getLogLevel().toUpperCase().equals("OFF")) {
+		initialConfig.setLogLevel("OFF");
+		Log.setLevel(Level.OFF);
+	    } else if (initialConfig.getLogLocation().toUpperCase().
+		    equals("CONSOLE")) {
+		Log.setStdOutput();
+		Log.setLevel(initialConfig.getLogLevel());
+	    } else {
+		try {
+		    Log.setFile(initialConfig.getLogLocation(), initialConfig.
+			    isLogAppend());
+		} catch (Exception ex) {
+		    throw new Exception("failed setting log file: " + ex.
+			    getClass()
+			    + " " + ex.getMessage());
+		}
+		Log.setLevel(initialConfig.getLogLevel());
 	    }
-	    Log.setLevel(initialConfig.getLogLevel());
 	}
 
+	final XmlFileSettings fileSettings = initialConfig.getFileSettings();
 	dir = new DirectoryManager(fileSettings.getRootDirectory(),
 		fileSettings.getCheckPeriodMillis(), fileSettings.
 		getMaxDirectoryDepth());
@@ -145,6 +147,7 @@ public class Main
 	    Log.info("interrupted");
 	}
 	Log.info("finished shutdown task");
+	Log.close();
     }
 
     private void validateConfig() throws Exception {
@@ -165,6 +168,10 @@ public class Main
 	if (initialConfig.getLocalControlPort() == initialConfig.
 		getLocalHttpPort()) {
 	    throw new Exception("control and http port values must be different");
+	}
+
+	if (initialConfig.getMaxClientConnections() < 0) {
+	    throw new Exception("maxClientConnections value cannot be negative");
 	}
 
 	if (initialConfig.getFileSettings() == null) {

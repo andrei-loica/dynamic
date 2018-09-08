@@ -1,6 +1,6 @@
 package andrei.dynamic.server;
 
-import andrei.dynamic.common.Address;
+import andrei.dynamic.common.AddressInstance;
 import andrei.dynamic.server.jaxb.XmlServerConfiguration;
 import andrei.dynamic.common.DirectoryChangesListener;
 import andrei.dynamic.common.DirectoryManager;
@@ -47,7 +47,6 @@ public class CoreManager
     private ConnectionListener connectionListener; //should never be null
     private HttpManager httpManager;
     private final HashMap<String, HashSet<String>> tokensForContent; //<relativeFileName, tokens>
-    private final HashMap<String, HashSet<String>> contentForToken; //<token, relativeFileNames>
     private final HashMap<String, HashSet<String>> runtimeTokensForFile;
     private final HashMap<String, HashSet<String>> runtimeFilesForToken;
     private final HashMap<String, String> lastAddressForToken; //<token, address>
@@ -69,7 +68,6 @@ public class CoreManager
 	offlineTokens = new HashSet<>();
 	blockedTokens = new HashSet<>();
 	tokensForContent = new HashMap<>();
-	contentForToken = new HashMap<>();
 	authenticatingClients = new ArrayList<>();
 	connectedTokensWithWorkers = new HashMap<>();
 	clientWorkers = new ArrayList<>();
@@ -240,38 +238,6 @@ public class CoreManager
 	}
     }
 
-    /*@Override
-    public void onFileModified(FileInstance file) {
-	try {
-	    final String localRelative = dir.paths.relativeFilePath(file.
-		    getPath());
-	    String bestMatch = "";
-	    for (String resource : tokensForContent.keySet()) {
-		if (resource.equals(localRelative)) {
-		    bestMatch = resource;
-		    break;
-		}
-		if (dir.isDirectory(resource) && localRelative.startsWith(
-			resource) && resource.length() > bestMatch.length()) {
-		    bestMatch = resource;
-		}
-	    }
-	    if (bestMatch.equals("")) {
-		return;
-	    }
-	    for (String token : tokensForContent.get(bestMatch)) {
-		final ClientWorker worker = connectedTokensWithWorkers.
-			get(token);
-
-		if (worker != null) {
-		    worker.addTask(new ClientTask(
-			    ClientTaskType.SEND_MODIFY_FILE, file));
-		}
-	    }
-	} catch (Exception ex) {
-	    System.out.println("failed to send modify file " + file.getPath());
-	}
-    }*/
     @Override
     @SuppressWarnings("NestedSynchronizedStatement")
     public synchronized void onFileDeleted(FileInstance file) {
@@ -467,7 +433,7 @@ public class CoreManager
 
 	XmlFileGroup.index = 0;
 	tokensForContent.clear();
-	contentForToken.clear();
+	validTokens.clear();
 
 	for (XmlFileGroup group : config.getFileSettings().getGroups()) {
 	    group.setOrder(++XmlFileGroup.index);
@@ -487,7 +453,6 @@ public class CoreManager
 	    }
 	}
 
-	validTokens.clear();
 	for (HashSet set : tokensForContent.values()) {
 	    validTokens.addAll(set);
 	}
@@ -498,7 +463,6 @@ public class CoreManager
 	    if (!connectedTokensWithWorkers.containsKey(token)) {
 		offlineTokens.add(token);
 	    }
-	    contentForToken.put(token, new HashSet());
 	    runtimeFilesForToken.put(token, new HashSet());
 	}
 
@@ -516,15 +480,6 @@ public class CoreManager
 		    current.getValue().addAll(other.getValue());
 		}
 	    }
-
-	    for (String client : current.getValue()) {
-		contentForToken.get(client).add(current.getKey());
-	    }
-	    /*System.out.println(current.getKey());
-	    for (String token : current.getValue()) {
-		System.out.print(token + " ");
-	    }
-	    System.out.println();*/
 	}
     }
 
@@ -566,8 +521,8 @@ public class CoreManager
     public Set<String> getBlockedClients() {
 	return blockedTokens;
     }
-    
-    public Map<String, String> getLoginHistory(){
+
+    public Map<String, String> getLoginHistory() {
 	return lastAddressForToken;
     }
 
@@ -615,9 +570,12 @@ public class CoreManager
 	return config;
     }
 
-    public void pushClient(final String token) {
-	if (!connectedTokensWithWorkers.get(token).addTask(new ClientTask(
-		ClientTaskType.GLOBAL_CHECK, null))) {
+    public void pushClient(final String token) throws Exception {
+	final ClientWorker worker = connectedTokensWithWorkers.get(token);
+	if (worker == null) {
+	    throw new Exception("no client found for token " + token);
+	}
+	if (!worker.addTask(new ClientTask(ClientTaskType.GLOBAL_CHECK, null))) {
 	    Log.warn("(web request) push failed for " + token);
 	}
     }
@@ -628,7 +586,7 @@ public class CoreManager
 
 	private final CoreManager parent;
 	private final ServerSocket serverSocket;
-	private Address listenerAddress;
+	private AddressInstance listenerAddress;
 	private boolean isActive;
 
 	public ConnectionListener(final CoreManager parent, final String address,
@@ -653,7 +611,8 @@ public class CoreManager
 	@Override
 	public void run() {
 
-	    listenerAddress = new Address(serverSocket.getLocalSocketAddress().
+	    listenerAddress = new AddressInstance(serverSocket.
+		    getLocalSocketAddress().
 		    toString(), serverSocket.getLocalPort());
 	    Log.info("listening to address " + listenerAddress);
 
@@ -672,7 +631,7 @@ public class CoreManager
 			serverSocket.close();
 		    } catch (Exception ex1) {
 			Log.warn("failed closing connection listener socket",
-				ex);
+				ex1);
 		    }
 		    break;
 		}
@@ -801,6 +760,13 @@ public class CoreManager
 		} catch (Exception ex) {
 		    Log.warn("encountered exception while working for client "
 			    + client, ex);
+		    stopWorking();
+		    client.disconnect();
+		    manager.clientWorkerStopped(this);
+		    client = null;
+		    manager = null;
+		    tasks = null;
+		    return;
 		    //ex.printStackTrace(System.err);
 		}
 	    }

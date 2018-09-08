@@ -29,7 +29,7 @@ public class HttpManager {
 
 	httpServer = HttpServer.create(new InetSocketAddress(httpAddress,
 		httpPort), 0);
-	if (id == null || id.isEmpty()) {
+	if (id == null || id.isEmpty() || authExpTime < 1) {
 	    this.id = null;
 	    this.password = null;
 	    this.authExpTime = 0;
@@ -37,7 +37,11 @@ public class HttpManager {
 	    useAuth = false;
 	} else {
 	    this.id = id;
-	    this.password = password;
+	    if (password == null) {
+		this.password = "";
+	    } else {
+		this.password = password;
+	    }
 	    this.authExpTime = authExpTime;
 	    worker = new Worker(this, id, password, authExpTime * 1000);
 	    useAuth = true;
@@ -65,11 +69,15 @@ public class HttpManager {
 	working = false;
 	final Thread stopThread = new Thread(() -> {
 	    httpServer.stop(1);
-	    worker.stopWorking();
-	    try {
-		worker.interrupt();
-	    } catch (Exception ex) {
-		Log.debug("failed interrupting http worker thread", ex);
+	    if (worker != null) {
+		worker.stopWorking();
+		try {
+		    worker.interrupt();
+		} catch (Exception ex) {
+		    Log.debug("failed interrupting http worker thread", ex);
+		}
+	    } else {
+		core.httpServerStopped();
 	    }
 	});
 
@@ -147,24 +155,16 @@ public class HttpManager {
 	public void run() {
 
 	    while (working) {
-		if (expTime > 0) {
-		    synchronized (this) {
-			long now = System.currentTimeMillis();
-			authenticated.entrySet().removeIf(entry -> entry.
-				getValue()
-				< now - expTime);
-		    }
-		    try {
-			Thread.sleep(expTime);
-		    } catch (Exception ex) {
-			//nimic
-		    }
-		} else {
-		    try {
-			Thread.sleep(3000);
-		    } catch (Exception ex) {
-			//nimic
-		    }
+		synchronized (this) {
+		    long now = System.currentTimeMillis();
+		    authenticated.entrySet().removeIf(entry -> entry.
+			    getValue()
+			    < now - expTime);
+		}
+		try {
+		    Thread.sleep(expTime);
+		} catch (Exception ex) {
+		    //nimic
 		}
 	    }
 

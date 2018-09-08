@@ -74,7 +74,7 @@ public class ParamsView
 		+ ">FATAL</option>"
 		+ "</select></div><div><input type=\"number\" name=\"maxDepth\" value=\""
 		+ config.getFileSettings().getMaxDirectoryDepth()
-		+ "\" min=\"0\"></div><div class=\"last\"><input type=\"number\" name=\"checkPeriod\" value=\""
+		+ "\" min=\"1\"></div><div class=\"last\"><input type=\"number\" name=\"checkPeriod\" value=\""
 		+ config.getFileSettings().getCheckPeriodMillis()
 		+ "\" min=\"0\"></div></div><div id=\"submit-params\"><input type=\"submit\" value=\"Update\"></div></form></div></body>";
 

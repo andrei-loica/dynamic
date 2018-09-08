@@ -1,11 +1,10 @@
 package andrei.dynamic.client;
 
-import andrei.dynamic.common.Address;
+import andrei.dynamic.common.AddressInstance;
 import andrei.dynamic.common.DirectoryPathHelper;
 import andrei.dynamic.common.MessageFactory;
 import andrei.dynamic.common.MustResetConnectionException;
 import andrei.dynamic.common.Log;
-import andrei.dynamic.common.MessageType;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.EOFException;
@@ -34,12 +33,11 @@ import javax.crypto.spec.SecretKeySpec;
  *
  * @author Andrei
  */
-public class Client {
+public class ConnectionWrapper {
 
     private final String localAddress;
     private final int localPort;
-    private final Address controlAddress;
-    private final Address dataAddress;
+    private final AddressInstance controlAddress;
     private final String authToken;
     private final DirectoryPathHelper dir;
     private Socket socket;
@@ -50,12 +48,10 @@ public class Client {
     private boolean keepWorking;
     private boolean reconnecting;
 
-    public Client(final String localAddress, int localPort,
-	    final Address controlAddress, final Address dataAddress,
-	    final DirectoryPathHelper dir, final String authToken,
-	    final String key) throws Exception {
+    public ConnectionWrapper(final String localAddress, int localPort,
+	    final AddressInstance controlAddress, final DirectoryPathHelper dir,
+	    final String authToken, final String key) throws Exception {
 	this.controlAddress = controlAddress;
-	this.dataAddress = dataAddress;
 	this.dir = dir;
 	this.authToken = authToken;
 	this.localAddress = localAddress;
@@ -161,8 +157,9 @@ public class Client {
 	    out = getOutputStream(socket.getOutputStream());
 	    in = getInputStream(socket.getInputStream());
 
-	    final Address runtimeLocalAddress = new Address(socket.
-		    getLocalAddress().toString(), socket.getLocalPort());
+	    final AddressInstance runtimeLocalAddress = new AddressInstance(
+		    socket.
+			    getLocalAddress().toString(), socket.getLocalPort());
 
 	    Log.fine("connected with address " + runtimeLocalAddress + " to "
 		    + controlAddress);
@@ -171,7 +168,7 @@ public class Client {
 
 	    while (keepWorking) {
 
-		MessageFromServer message = null;
+		ServerMessageInstance message = null;
 
 		try {
 
@@ -219,6 +216,16 @@ public class Client {
 	} finally {
 	    if (socket != null) {
 		try {
+		    socket.shutdownInput();
+		} catch (Exception ex) {
+		    Log.warn("failed closing tcp socket input", ex);
+		}
+		try {
+		    socket.shutdownOutput();
+		} catch (Exception ex) {
+		    Log.warn("failed closing tcp socket output", ex);
+		}
+		try {
 		    socket.close();
 		} catch (Exception ex) {
 		    Log.warn("failed closing tcp socket", ex);
@@ -241,7 +248,8 @@ public class Client {
 	    Exception {
 
 	byte[] msg = MessageFactory.newCheckFileMessageResponse(relative,
-		dir.getLocalFileMD5(dir.getAbsolutePath(relative)));
+		DirectoryPathHelper.getLocalFileMD5(dir.
+			getAbsolutePath(relative)));
 	out.write(msg);
 	out.flush();
     }
@@ -250,7 +258,7 @@ public class Client {
 	keepWorking = false;
     }
 
-    public void disconnect() throws IOException { //TODO vezi ca ajunge close pe socket
+    public void disconnect() throws IOException {
 	final StringBuilder exceptionMessage = new StringBuilder();
 	try {
 	    out.close();
@@ -265,19 +273,24 @@ public class Client {
 		throw ex;
 	    } finally {
 		try {
+		    socket.shutdownOutput();
+		} catch (Exception ex) {
+		    //nimic
+		}
+		try {
 		    socket.close();
 		} catch (Exception ex) {
 		    exceptionMessage.append(ex.getMessage()).append(" ; ");
 		    throw ex;
 		}
 	    }
-	    //TODO fa ceva cu mesajele de exceptie
 	}
     }
 
-    private MessageFromServer getMessage() throws Exception {
+    private ServerMessageInstance getMessage() throws Exception {
 
 	int type = -2;
+	long waitingSince = System.currentTimeMillis();
 
 	while (type == -2) {
 	    if (!keepWorking) {
@@ -289,10 +302,14 @@ public class Client {
 	    } catch (SocketTimeoutException ex) {
 		type = -2;
 	    }
+
+	    if (System.currentTimeMillis() - 20000 > waitingSince) {
+		throw new MustResetConnectionException("connection inactive");
+	    }
 	}
 
 	if (type == -1) {
-	    throw new EOFException();
+	    throw new EOFException("connection closed");
 	}
 
 	int counter = 1;
@@ -307,7 +324,7 @@ public class Client {
 	    }
 	}
 
-	return new MessageFromServer(type, buff);
+	return new ServerMessageInstance(type, buff);
 
     }
 
@@ -323,7 +340,7 @@ public class Client {
 	boolean streaming = true;
 
 	while (streaming) {
-	    final MessageFromServer message = getMessage();
+	    final ServerMessageInstance message = getMessage();
 	    int leftToRead;
 	    int padding;
 

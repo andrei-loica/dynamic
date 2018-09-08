@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.List;
 
 /**
  *
@@ -64,7 +63,7 @@ public class UpdateView
 			switch (pair[0]) {
 			    case "client":
 				if (pair[1].length()
-					> MessageFactory.STD_MSG_DIM - 1) {
+					>= MessageFactory.STD_MSG_DIM) {
 				    respond404(req);
 				    return;
 				}
@@ -75,7 +74,7 @@ public class UpdateView
 
 			    case "file":
 				if (pair[1].length()
-					> MessageFactory.STD_MSG_DIM - 1) {
+					>= MessageFactory.STD_MSG_DIM) {
 				    respond404(req);
 				    return;
 				}
@@ -115,8 +114,7 @@ public class UpdateView
 			}
 			synchronized (config) {
 			    final XmlFileGroup group = config.getFileSettings().
-				    getGroups().get(
-					    idx - 1);
+				    getGroups().get(idx - 1);
 			    group.setClients(Arrays.copyOf(clients.toArray(),
 				    clients.size(), String[].class));
 			    group.setFiles(Arrays.copyOf(files.toArray(), files.
@@ -200,7 +198,7 @@ public class UpdateView
 			if (maxClientConnections >= 0) {
 			    config.setMaxClientConnections(maxClientConnections);
 			}
-			if (maxDepth >= 0) {
+			if (maxDepth > 0) {
 			    config.getFileSettings().setMaxDirectoryDepth(
 				    maxDepth);
 			}

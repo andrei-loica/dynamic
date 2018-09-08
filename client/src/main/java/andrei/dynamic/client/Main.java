@@ -1,6 +1,6 @@
 package andrei.dynamic.client;
 
-import andrei.dynamic.common.Address;
+import andrei.dynamic.common.AddressInstance;
 import andrei.dynamic.common.ShutdownTask;
 import andrei.dynamic.common.ShutdownListener;
 import andrei.dynamic.common.DirectoryPathHelper;
@@ -18,58 +18,56 @@ import javax.xml.bind.Unmarshaller;
 public class Main
 	implements ShutdownListener {
 
-    private final ClientConfiguration initialConfig;
-    private final Address controlAddress;
-    private final Address dataAddress;
+    private final XmlClientConfiguration initialConfig;
+    private final AddressInstance controlAddress;
     private final DirectoryPathHelper dir;
     private final boolean keepAlive;
-    private Client client;
+    private ConnectionWrapper client;
     private Thread shutdownHook;
 
     public Main(final String configFilePath) throws Exception {
 
-	JAXBContext context = JAXBContext.newInstance(ClientConfiguration.class);
+	JAXBContext context = JAXBContext.newInstance(
+		XmlClientConfiguration.class);
 	Unmarshaller um = context.createUnmarshaller();
-	initialConfig = (ClientConfiguration) um.unmarshal(new File(
+	initialConfig = (XmlClientConfiguration) um.unmarshal(new File(
 		configFilePath));
 
 	validateConfig();
 
-	dir = new DirectoryPathHelper(initialConfig.getRootDirectory());
-	controlAddress = new Address(initialConfig.getServerAddress(),
+	dir = new DirectoryPathHelper(initialConfig.getRootDirectory(), initialConfig.getTempDirectory());
+	controlAddress = new AddressInstance(initialConfig.getServerAddress(),
 		initialConfig.getServerControlPort());
-	dataAddress = new Address(initialConfig.getServerAddress(),
-		initialConfig.getServerDataPort());
 	keepAlive = initialConfig.getKeepAlive();
 	if (initialConfig.getLogLocation() == null || initialConfig.
-		getLogLocation().
-		isEmpty()) {
+		getLogLocation().isEmpty()) {
 	    initialConfig.setLogLevel("OFF");
 	    Log.setLevel(Level.OFF);
-	} else if (initialConfig.getLogLocation().toUpperCase().
-		equals("CONSOLE")) {
-	    if (initialConfig.getLogLevel() == null || initialConfig.
-		    getLogLevel().isEmpty()) {
-		initialConfig.setLogLevel("INFO");
-	    }
-	    System.out.println(initialConfig.getLogLevel());
-	    Log.setStdOutput();
-	    Log.setLevel(initialConfig.getLogLevel());
 	} else {
 	    if (initialConfig.getLogLevel() == null || initialConfig.
 		    getLogLevel().isEmpty()) {
 		initialConfig.setLogLevel("INFO");
 	    }
-	    try {
-		Log.setFile(initialConfig.getLogLocation(), initialConfig.
-			isLogAppend());
-	    } catch (Exception ex) {
-		throw new Exception("failed setting log file: " + ex.getClass()
-			+ " " + ex.getMessage());
-	    }
-	    Log.setLevel(initialConfig.getLogLevel());
-	}
 
+	    if (initialConfig.getLogLevel().toUpperCase().equals("OFF")) {
+		initialConfig.setLogLevel("OFF");
+		Log.setLevel(Level.OFF);
+	    } else if (initialConfig.getLogLocation().toUpperCase().
+		    equals("CONSOLE")) {
+		Log.setStdOutput();
+		Log.setLevel(initialConfig.getLogLevel());
+	    } else {
+		try {
+		    Log.setFile(initialConfig.getLogLocation(), initialConfig.
+			    isLogAppend());
+		} catch (Exception ex) {
+		    throw new Exception("failed setting log file: " + ex.
+			    getClass()
+			    + " " + ex.getMessage());
+		}
+		Log.setLevel(initialConfig.getLogLevel());
+	    }
+	}
     }
 
     public static void main(final String[] args) {
@@ -119,8 +117,9 @@ public class Main
 
 	Log.info("initialized shutdown hook");
 
-	client = new Client(initialConfig.getLocalAddress(), initialConfig.
-		getLocalPort(), controlAddress, dataAddress, dir, initialConfig.
+	client = new ConnectionWrapper(initialConfig.getLocalAddress(),
+		initialConfig.
+			getLocalPort(), controlAddress, dir, initialConfig.
 			getClientAuthToken(), initialConfig.getKey());
 
 	try {
@@ -175,12 +174,6 @@ public class Main
 		    "invalid serverControlPort parameter in client configuration");
 	}
 
-	if (initialConfig.getServerDataPort() < 1 || initialConfig.
-		getServerDataPort() > 65535) {
-	    throw new Exception(
-		    "invalid serverDataPort parameter in client configuration");
-	}
-
 	if (initialConfig.getRootDirectory() == null
 		|| initialConfig.getRootDirectory().isEmpty()) {
 	    throw new Exception(
@@ -207,6 +200,7 @@ public class Main
 	    Log.info("interrupted");
 	}
 	Log.info("finished shutdown task");
+	Log.close();
     }
 
 }

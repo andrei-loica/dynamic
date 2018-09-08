@@ -6,13 +6,13 @@ import java.util.Objects;
  *
  * @author Andrei
  */
-public class Address
-	implements Comparable<Address> {
+public class AddressInstance
+	implements Comparable<AddressInstance> {
 
     private final String host;
     private final int port;
 
-    public Address(final String host, int portValue) {
+    public AddressInstance(final String host, int portValue) {
 	if (host == null) {
 	    throw new NullPointerException("null address value");
 	}
@@ -67,7 +67,7 @@ public class Address
 	if (getClass() != obj.getClass()) {
 	    return false;
 	}
-	final Address other = (Address) obj;
+	final AddressInstance other = (AddressInstance) obj;
 	if (this.port != other.port) {
 	    return false;
 	}
@@ -78,11 +78,11 @@ public class Address
     }
 
     @Override
-    public int compareTo(Address other) {
+    public int compareTo(AddressInstance other) {
 	return toString().compareTo(other.toString());
     }
 
-    public static Address parseAddress(final String entry) throws Exception {
+    public static AddressInstance parseAddress(final String entry) throws Exception {
 
 	if (entry.matches("\\A(25[0-5]|2[0-4][0-9]|[01]?[0-9]{0,2})\\."
 		+ "(25[0-5]|2[0-4][0-9]|[01]?[0-9]{0,2})\\."
@@ -124,6 +124,6 @@ public class Address
 	    throw new Exception("invalid port value");
 	}
 
-	return new Address(host, portNumber);
+	return new AddressInstance(host, portNumber);
     }
 }

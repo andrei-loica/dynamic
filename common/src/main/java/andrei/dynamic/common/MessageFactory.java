@@ -1,7 +1,6 @@
 package andrei.dynamic.common;
 
 import java.util.Arrays;
-import javax.xml.bind.DatatypeConverter;
 
 /**
  *
@@ -10,7 +9,7 @@ import javax.xml.bind.DatatypeConverter;
 public class MessageFactory {
 
     public static final int STD_MSG_DIM = 256;
-    public static final int TRANSFER_MSG_DIM = 32;
+    public static final int TRANSFER_MSG_DIM = 16;
     public static final int CHECK_FILE_MSG_RSP_DIM = 512;
 
     private MessageFactory() {
@@ -176,8 +175,8 @@ public class MessageFactory {
 	}
 
 	if (content.length >= STD_MSG_DIM) {
-	    throw new Exception("too big file relative name " + authToken
-		    + " for modify file message");
+	    throw new Exception("too big token name " + authToken
+		    + " for test message response");
 	}
 
 	return resolvePadding(concatenate(

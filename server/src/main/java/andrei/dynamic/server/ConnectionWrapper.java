@@ -1,7 +1,7 @@
 package andrei.dynamic.server;
 
 import andrei.dynamic.common.MustResetConnectionException;
-import andrei.dynamic.common.Address;
+import andrei.dynamic.common.AddressInstance;
 import andrei.dynamic.common.Log;
 import andrei.dynamic.common.MessageFactory;
 import andrei.dynamic.common.MessageType;
@@ -30,7 +30,7 @@ public class ConnectionWrapper
     private static final int SOCKET_TIMEOUT = 5000;
     private final CoreManager manager;
     private final Socket socket;
-    private final Address clientControlAddress;
+    private final AddressInstance clientControlAddress;
     private String authToken;
     private final OutputStream out;
     private final InputStream in;
@@ -41,7 +41,8 @@ public class ConnectionWrapper
 	    throws Exception {
 	this.manager = manager;
 	this.socket = socket;
-	clientControlAddress = new Address(socket.getRemoteSocketAddress().
+	clientControlAddress = new AddressInstance(socket.
+		getRemoteSocketAddress().
 		toString(), socket.getPort());
 	try {
 	    socket.setTcpNoDelay(true);
@@ -63,7 +64,7 @@ public class ConnectionWrapper
 	closing = false;
     }
 
-    public Address getClientControlAddress() {
+    public AddressInstance getClientControlAddress() {
 	return clientControlAddress;
     }
 
@@ -275,6 +276,16 @@ public class ConnectionWrapper
 
     public void disconnect() {
 	onClosing();
+	try {
+	    socket.shutdownInput();
+	} catch (Exception ex) {
+	    Log.fine("failed closing input for client " + clientControlAddress);
+	}
+	try {
+	    socket.shutdownOutput();
+	} catch (Exception ex) {
+	    Log.fine("failed closing output for client " + clientControlAddress);
+	}
 	try {
 	    socket.close();
 	} catch (Exception ex) {

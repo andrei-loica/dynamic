@@ -78,11 +78,11 @@ public abstract class View
     }
 
     protected String headWithCss() {
-	return "<head><link rel=\"stylesheet\" type=\"text/css\" href=\"/static/css\"></head>";
+	return "<head><link rel=\"stylesheet\" type=\"text/css\" href=\"/static/css\"><link rel=\"shortcut icon\" href=\"/favicon.ico\" type=\"image/x-icon\"><link rel=\"icon\" href=\"/favicon.ico\" type=\"image/x-icon\"></head>";
     }
 
     protected String headWithCssAndJs() {
-	return "<head><link rel=\"stylesheet\" type=\"text/css\" href=\"/static/css\"><script src=\"/static/js\"></script></head>";
+	return "<head><link rel=\"stylesheet\" type=\"text/css\" href=\"/static/css\"><link rel=\"shortcut icon\" href=\"/favicon.ico\" type=\"image/x-icon\"><link rel=\"icon\" href=\"/favicon.ico\" type=\"image/x-icon\"><script src=\"/static/js\"></script></head>";
     }
 
     protected String menu(int selected) {

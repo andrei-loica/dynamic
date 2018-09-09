@@ -16,6 +16,7 @@ public class StaticView
     private static final String CSS_FILE = "/style.css";
     private static final String JS_FILE = "/script.js";
     private static final String AUTH_JS_FILE = "/auth.js";
+    private static final String FAVICON = "/favicon.ico";
     
     public StaticView(final HttpManager manager){
 	super(manager);
@@ -24,6 +25,30 @@ public class StaticView
     @Override
     public void handle(HttpExchange req) throws IOException {
 	switch (req.getRequestURI().getRawPath()) {
+	    case "/static/favicon":
+	    case "/static/favicon/":
+		try {
+		    req.getResponseHeaders().set("Content-Type", "image/png");
+		    final OutputStream out = req.getResponseBody();
+		    final BufferedInputStream file = new BufferedInputStream(
+			    getClass().getResourceAsStream(FAVICON));
+
+		    final byte[] buff = new byte[1024 * 4];
+		    int read = 0;
+		    req.sendResponseHeaders(200, 0);
+		    while ((read = file.read(buff)) > -1) {
+			out.write(buff, 0, read);
+		    }
+		    
+		    file.close();
+		    req.close();
+		} catch (Exception ex) {
+		    Log.debug("failed to upload favicon", ex);
+		    respond404(req);
+		}
+
+		break;
+		
 	    case "/static/css":
 	    case "/static/css/":
 		try {

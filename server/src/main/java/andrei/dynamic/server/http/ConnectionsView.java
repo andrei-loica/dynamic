@@ -30,6 +30,10 @@ public class ConnectionsView
 
 	final String path = req.getRequestURI().getPath();
 
+	if ("/favicon.ico".equals(path)){
+	    redirectTo("/static/favicon", req);
+	    return;
+	}
 	if ("/".equals(path)) {
 	    redirectTo("/connections", req);
 	    return;

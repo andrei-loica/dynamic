@@ -28,6 +28,7 @@
                     <include>style.css</include>
                     <include>script.js</include>
                     <include>auth.js</include>
+                    <include>favicon.ico</include>
                 </includes>
             </resource>
         </resources>

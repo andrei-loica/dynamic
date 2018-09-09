@@ -104,7 +104,7 @@ public class Main
 	try {
 	    main.start();
 	} catch (Exception ex) {
-	    Log.fatal("Failed starting the client: " + ex.getMessage());
+	    System.err.println("Failed starting the client: " + ex.getMessage());
 	}
     }
 

@@ -119,62 +119,89 @@ public class Log {
     }
 
     public static void log(Level logLevel, final String log) {
-	final LogRecord record = new LogRecord(logLevel, log);
-	handler.publish(record);
+	if (handler != null) {
+	    final LogRecord record = new LogRecord(logLevel, log);
+	    handler.publish(record);
+	}
     }
 
     public static void trace(final String log) {
-	log(CustomLevel.TRACE, log);
+	if (handler != null) {
+	    log(CustomLevel.TRACE, log);
+	}
     }
 
     public static void debug(final String log) {
-	log(CustomLevel.DEBUG, log);
+	if (handler != null) {
+	    log(CustomLevel.DEBUG, log);
+	}
     }
 
     public static void fine(final String log) {
-	log(CustomLevel.FINE, log);
+	if (handler != null) {
+	    log(CustomLevel.FINE, log);
+	}
     }
 
     public static void info(final String log) {
-	log(CustomLevel.INFO, log);
+	if (handler != null) {
+	    log(CustomLevel.INFO, log);
+	}
     }
 
     public static void warn(final String log) {
-	log(CustomLevel.WARNING, log);
+	if (handler != null) {
+	    log(CustomLevel.WARNING, log);
+	}
     }
 
     public static void fatal(final String log) {
-	log(CustomLevel.FATAL, log);
+	if (handler != null) {
+	    log(CustomLevel.FATAL, log);
+	}
     }
 
     public static void trace(final String log, final Throwable ex) {
-	log(CustomLevel.TRACE, log + ": " + ex.getClass().getCanonicalName()
-		+ " " + ex.getMessage());
+	if (handler != null) {
+	    log(CustomLevel.TRACE, log + ": " + ex.getClass().getCanonicalName()
+		    + " " + ex.getMessage());
+	}
     }
 
     public static void debug(final String log, final Throwable ex) {
-	log(CustomLevel.DEBUG, log + ": " + ex.getClass().getCanonicalName()
-		+ " " + ex.getMessage());
+	if (handler != null) {
+	    log(CustomLevel.DEBUG, log + ": " + ex.getClass().getCanonicalName()
+		    + " " + ex.getMessage());
+	}
     }
 
     public static void fine(final String log, final Throwable ex) {
-	log(CustomLevel.FINE, log + ": " + ex.getClass().getCanonicalName()
-		+ " " + ex.getMessage());
+	if (handler != null) {
+	    log(CustomLevel.FINE, log + ": " + ex.getClass().getCanonicalName()
+		    + " " + ex.getMessage());
+	}
     }
 
     public static void info(final String log, final Throwable ex) {
-	log(CustomLevel.INFO, log + ": " + ex.getClass().getCanonicalName()
-		+ " " + ex.getMessage());
+	if (handler != null) {
+	    log(CustomLevel.INFO, log + ": " + ex.getClass().getCanonicalName()
+		    + " " + ex.getMessage());
+	}
     }
 
     public static void warn(final String log, final Throwable ex) {
-	log(CustomLevel.WARNING, log + ": " + ex.getClass().getCanonicalName()
-		+ " " + ex.getMessage());
+	if (handler != null) {
+	    log(CustomLevel.WARNING, log + ": " + ex.getClass().
+		    getCanonicalName()
+		    + " " + ex.getMessage());
+	}
     }
 
     public static void fatal(final String log, final Throwable ex) {
-	log(CustomLevel.FATAL, log + ": " + ex.getClass().getCanonicalName()
-		+ " " + ex.getMessage());
+	if (handler != null) {
+	    log(CustomLevel.FATAL, log + ": " + ex.getClass().getCanonicalName()
+		    + " " + ex.getMessage());
+	}
     }
 
     private static class CustomLevel

@@ -27,7 +27,7 @@ public abstract class AbstractContentNode
 
     public abstract boolean isDirectory();
 
-    public final String getPath() {
+    public String getPath() {
 	return path;
     }
 
@@ -41,7 +41,7 @@ public abstract class AbstractContentNode
 
     @Override
     public int compareTo(AbstractContentNode other) {
-	int comp = path.compareTo(other.path);
+	int comp = getPath().compareTo(other.getPath());
 	if (comp != 0) {
 	    return comp;
 	}
@@ -60,7 +60,7 @@ public abstract class AbstractContentNode
     @Override
     public int hashCode() {
 	int hash = 7;
-	hash = 83 * hash + Objects.hashCode(this.path);
+	hash = 83 * hash + Objects.hashCode(this.getPath());
 	return hash;
     }
 
@@ -76,7 +76,7 @@ public abstract class AbstractContentNode
 	    return false;
 	}
 	final AbstractContentNode other = (AbstractContentNode) obj;
-	return (Objects.equals(this.path, other.path) && this.isDirectory()
+	return (Objects.equals(this.getPath(), other.getPath()) && this.isDirectory()
 		== other.isDirectory());
     }
 

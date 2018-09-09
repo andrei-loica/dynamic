@@ -1,6 +1,7 @@
 package andrei.dynamic.common;
 
 import java.io.File;
+import java.nio.file.FileSystems;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -47,6 +48,11 @@ public class DirectoryInstance
     @Override
     public boolean isDirectory() {
 	return true;
+    }
+    
+    @Override
+    public String getPath(){
+	return super.getPath() + FileSystems.getDefault().getSeparator();
     }
 
     public AbstractContentNode[] getContent() {

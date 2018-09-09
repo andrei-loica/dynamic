@@ -268,8 +268,8 @@ public class CoreManager
 		}
 	    }
 	    if (Log.isDebugEnabled()) {
-		Log.debug("notifying deletion on " + count + " client for file "
-			+ file.getPath());
+		Log.debug("notifying deletion on " + count
+			+ " clients for file " + file.getPath());
 	    }
 	} catch (Exception ex) {
 	    Log.warn("failed to notify deletion for file " + file.getPath(), ex);
@@ -767,7 +767,6 @@ public class CoreManager
 		    manager = null;
 		    tasks = null;
 		    return;
-		    //ex.printStackTrace(System.err);
 		}
 	    }
 
@@ -865,12 +864,10 @@ public class CoreManager
 			} catch (MustResetConnectionException ex) {
 			    Log.debug("failed remote file check for "
 				    + file, ex);
-			    ex.printStackTrace(System.out);
 			    break;
 			} catch (Exception ex) {
 			    Log.warn("failed remote file check for "
 				    + file, ex);
-			    ex.printStackTrace(System.out);
 			    break;
 			}
 
@@ -915,12 +912,10 @@ public class CoreManager
 				} catch (MustResetConnectionException ex) {
 				    Log.debug("failed remote file check for "
 					    + file, ex);
-				    ex.printStackTrace(System.out);
 				    break;
 				} catch (Exception ex) {
 				    Log.warn("failed remote file check for "
 					    + file, ex);
-				    ex.printStackTrace(System.out);
 				    break;
 				}
 

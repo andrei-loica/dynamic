@@ -96,7 +96,8 @@ public final class DirectoryManager {
 
 	if (state == State.INITIALIZED_NOT_REGISTERED || state
 		== State.NOT_INITIALIZED || state
-		== State.DEREGISTERED_WAITING_STOP) {
+		== State.DEREGISTERED_WAITING_STOP || state
+		== State.REGISTERED_WAITING_STOP) {
 	    return;
 	}
 
@@ -105,27 +106,30 @@ public final class DirectoryManager {
 	    return;
 	}
 
+	if (worker == null && state == State.REGISTERED_WORKING) {
+	    state = State.REGISTERED_NOT_WORKING;
+	}
+
 	if (state == State.REGISTERED_NOT_WORKING && checkPeriod > 0) {
 	    worker = new Worker(checkPeriod, this);
 	    worker.start();
 	    state = State.REGISTERED_WORKING;
-	}
-
-	if (state == State.REGISTERED_WORKING) {
+	} else if (state == State.REGISTERED_WORKING) {
 	    if (checkPeriod < 1) {
-		state = State.REGISTERED_NOT_WORKING;
+		state = State.REGISTERED_WAITING_STOP;
 		worker.stopWorking();
-		worker = null;
 	    } else {
 		if (worker != null) {
 		    worker.setCheckPeriod(checkPeriod);
 		} else {
 		    Log.fatal("directory manager worker is null in state "
 			    + state);
+		    worker = new Worker(checkPeriod, this);
+		    worker.start();
+		    Log.info("restarted directory manager worker");
 		}
 	    }
 	}
-
     }
 
     public boolean isDirectory(final String relative) {
@@ -235,6 +239,8 @@ public final class DirectoryManager {
 	state = State.DEREGISTERED_WAITING_STOP;
 	if (worker != null) {
 	    worker.stopWorking();
+	} else {
+	    Log.info("deregistered directory manager listener");
 	}
 
     }
@@ -253,8 +259,10 @@ public final class DirectoryManager {
 
     public void loadFiles() {
 
-	if (state != State.REGISTERED_NOT_WORKING && state
-		!= State.REGISTERED_WORKING) {
+	if (state != State.REGISTERED_WORKING && state
+		!= State.REGISTERED_NOT_WORKING && state
+		!= State.REGISTERED_WAITING_STOP && state
+		!= State.REGISTERED_WAITING_STOP_THEN_CHECK) {
 	    throw new IllegalStateException("illegal loadFiles in state "
 		    + state);
 	}
@@ -272,32 +280,33 @@ public final class DirectoryManager {
 			    getLocalFileMD5(file.getPath()));
 		    notifyLoaded(file);
 		} catch (Exception ex) {
-		    Log.debug("failed to load file " + file);
+		    Log.debug("failed to load file " + file, ex);
 		}
 	    }
 	}
-
     }
 
     private synchronized void workerStopped() {
-	if (worker.isWorking()) {
-	    switch (state) {
-		case DEREGISTERED_WAITING_STOP:
-		    listener = null;
-		    state = State.INITIALIZED_NOT_REGISTERED;
-		    break;
+	Log.debug("directory manager worker stopped");
+	switch (state) {
+	    case DEREGISTERED_WAITING_STOP:
+		listener = null;
+		state = State.INITIALIZED_NOT_REGISTERED;
+		Log.info("deregistered directory manager listener");
+		break;
 
-		case REGISTERED_WAITING_STOP:
-		case REGISTERED_WORKING:
-		    state = State.REGISTERED_NOT_WORKING;
-		    break;
+	    case REGISTERED_WAITING_STOP:
+	    case REGISTERED_WORKING:
+		worker = null;
+		state = State.REGISTERED_NOT_WORKING;
+		break;
 
-		case REGISTERED_WAITING_STOP_THEN_CHECK:
-		    state = State.REGISTERED_NOT_WORKING;
-		    checkWorker();
-		    break;
+	    case REGISTERED_WAITING_STOP_THEN_CHECK:
+		worker = null;
+		state = State.REGISTERED_NOT_WORKING;
+		checkWorker();
+		break;
 
-	    }
 	}
     }
 
@@ -356,20 +365,30 @@ public final class DirectoryManager {
 
 	@Override
 	public void run() {
+	    Log.debug("directory manager worker started");
 
+	    try {
+		Thread.sleep(checkPeriod);
+	    } catch (Exception ex) {
+		Log.trace("directory manager worker interrupted", ex);
+	    }
+	    
 	    while (keepWorking) {
+
+		synchronized (this) {
+		    try {
+			parent.refreshContentImage();
+		    } catch (Exception ex) {
+			Log.debug(
+				"caught exception while refreshing root directory image",
+				ex);
+		    }
+		}
 
 		try {
 		    Thread.sleep(checkPeriod);
 		} catch (Exception ex) {
-		    keepWorking = false;
-		    break;
-		}
-
-		try {
-		    parent.refreshContentImage();
-		} catch (Exception ex) {
-
+		    Log.trace("directory manager worker interrupted", ex);
 		}
 
 	    }
@@ -385,13 +404,18 @@ public final class DirectoryManager {
 
 	public void setCheckPeriod(int checkPeriod) {
 	    this.checkPeriod = checkPeriod;
+	    try {
+		this.interrupt();
+	    } catch (Exception ex) {
+		Log.debug("failed interrupting DirectoryManager worker", ex);
+	    }
 	}
 
-	public void stopWorking() {
+	public synchronized void stopWorking() {
 	    keepWorking = false;
-	    try{
+	    try {
 		this.interrupt();
-	    } catch (Exception ex){
+	    } catch (Exception ex) {
 		Log.debug("failed interrupting DirectoryManager worker", ex);
 	    }
 	}

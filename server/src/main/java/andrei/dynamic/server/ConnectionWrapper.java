@@ -27,7 +27,7 @@ import javax.xml.bind.DatatypeConverter;
 public class ConnectionWrapper
 	implements Comparable<ConnectionWrapper> {
 
-    private static final int SOCKET_TIMEOUT = 5000;
+    private static final int SOCKET_TIMEOUT = 10000;
     private final CoreManager manager;
     private final Socket socket;
     private final AddressInstance clientControlAddress;
@@ -271,7 +271,6 @@ public class ConnectionWrapper
 	byte[] msg = MessageFactory.newTestMessage();
 	out.write(msg);
 	out.flush();
-	//System.out.println("written test message");
     }
 
     public void disconnect() {

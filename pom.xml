@@ -10,7 +10,7 @@
         <module>client</module>
         <module>common</module>
     </modules>
-    <name>Dynamic Config :: PARENT</name>
+    <name>Dynamic Config _:: PARENT</name>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>

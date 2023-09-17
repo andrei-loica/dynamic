@@ -224,13 +224,14 @@ public class ConnectionWrapper
 	    return false;
 	}
 
+        /*
 	if (Log.isTraceEnabled()) {
 	    Log.trace(DatatypeConverter.printHexBinary(MessageFactory.
 		    trimPadding(Arrays.copyOfRange(buff,
 			    MessageFactory.STD_MSG_DIM - 1, dim)))
 		    + " local hash and " + DatatypeConverter.printHexBinary(md5)
 		    + " remote hash");
-	}
+	}*/
 	return Arrays.equals(MessageFactory.trimPadding(Arrays.copyOfRange(buff,
 		MessageFactory.STD_MSG_DIM - 1, dim)), md5);
     }

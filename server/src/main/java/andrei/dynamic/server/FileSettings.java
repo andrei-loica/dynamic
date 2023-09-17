@@ -23,7 +23,11 @@ public class FileSettings {
 	rootDirectory = original.getRootDirectory();
 	maxDirectoryDepth = original.getMaxDirectoryDepth();
 	checkPeriodMillis = original.getCheckPeriodMillis();
+        if (original.getGroups() != null){
 	groups = new ArrayList(Arrays.asList(original.getGroups()));
+        } else {
+            groups = new ArrayList();
+        }
     }
 
     public String getRootDirectory() {

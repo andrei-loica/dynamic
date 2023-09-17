@@ -179,11 +179,6 @@ public class Main
 		    "could not extract fileSettings from server configuration");
 	}
 
-	if (initialConfig.getFileSettings().getGroups() == null) {
-	    throw new Exception(
-		    "no file-group elements found within file settings");
-	}
-
 	if (initialConfig.getFileSettings().getRootDirectory() == null
 		|| initialConfig.getFileSettings().getRootDirectory().isEmpty()) {
 	    throw new Exception(
